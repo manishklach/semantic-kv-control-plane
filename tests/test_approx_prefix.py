@@ -66,7 +66,7 @@ def test_simulate_cli_supports_approx_prefix(tmp_path, monkeypatch) -> None:
     assert "Approximate Prefix Matching" in result.stdout
 
 
-def test_shared_prefix_workload_remains_exact_hash_based() -> None:
+def test_shared_prefix_workload_remains_hash_based_even_with_variants() -> None:
     profile = MODEL_PRESETS["llama8b"]
     events = shared_prefix_workload(profile, sessions=3, context=512, decode_steps=2)
     prefix_hashes = {
@@ -74,4 +74,5 @@ def test_shared_prefix_workload_remains_exact_hash_based() -> None:
         for event in events
         if event.block is not None and event.block.prefix_hash is not None
     }
-    assert prefix_hashes == {"shared-system-prompt-v1"}
+    assert "shared-system-prompt-v1" in prefix_hashes
+    assert all(isinstance(prefix_hash, str) for prefix_hash in prefix_hashes)

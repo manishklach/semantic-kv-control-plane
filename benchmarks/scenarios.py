@@ -105,6 +105,7 @@ def run_scenario(scenario: Scenario) -> list[dict[str, Any]]:
             "eviction_count": metrics.eviction_count,
             "late_prefetch_count": 0,
             "simulated_stall_ms": metrics.simulated_stall_us / 1000,
+            "stall_overhead_ms": metrics.simulated_stall_us / 1000,
             "simulated_energy_j": metrics.movement_energy_j,
             "energy_per_token": metrics.energy_per_token,
             "throughput_score": metrics.estimated_throughput_score,

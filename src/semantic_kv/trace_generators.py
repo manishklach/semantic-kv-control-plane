@@ -77,6 +77,11 @@ class BaseTraceGenerator:
             },
         )
 
+    def _prefix_variation_ratio(self, session_index: int) -> float:
+        """Return a deterministic 5-15% prefix variance ratio."""
+
+        return 0.05 + (session_index % 11) / 100
+
     def _access(self, step: int, session_id: str, block_index: int) -> TraceEvent:
         return TraceEvent(
             step,
@@ -118,6 +123,8 @@ class SharedEnterprisePromptTrace(BaseTraceGenerator):
         for s in range(sessions):
             tenant_id = f"tenant-{s % tenants}"
             session_id = f"{tenant_id}:s{s}"
+            variation_ratio = self._prefix_variation_ratio(s)
+            stable_prefix_blocks = max(1, int(prefix_blocks * (1 - variation_ratio)))
             events.append(
                 TraceEvent(
                     0,
@@ -129,6 +136,12 @@ class SharedEnterprisePromptTrace(BaseTraceGenerator):
                 )
             )
             for i in range(prefix_blocks):
+                is_shared = i < stable_prefix_blocks
+                prefix_hash = (
+                    "enterprise-policy-v1"
+                    if is_shared
+                    else f"enterprise-policy-v1:{s}:{i}"
+                )
                 events.append(
                     self._alloc(
                         i,
@@ -137,8 +150,8 @@ class SharedEnterprisePromptTrace(BaseTraceGenerator):
                         self.profile.block_tokens,
                         EvictionClass.REUSABLE_PREFIX,
                         tenant_id,
-                        "enterprise-policy-v1",
-                        fanout,
+                        prefix_hash,
+                        fanout if is_shared else 1,
                         gpu_id=f"gpu-{s % 8}",
                     )
                 )
@@ -150,7 +163,7 @@ class SharedEnterprisePromptTrace(BaseTraceGenerator):
                         session_id,
                         tenant_id,
                         self.profile.model_name,
-                        prefix_hash="enterprise-policy-v1",
+                        prefix_hash=prefix_hash,
                     )
                 )
                 events.append(
@@ -161,7 +174,7 @@ class SharedEnterprisePromptTrace(BaseTraceGenerator):
                         session_id,
                         tenant_id,
                         self.profile.model_name,
-                        prefix_hash="enterprise-policy-v1",
+                        prefix_hash=prefix_hash,
                     )
                 )
             for i in range(unique_blocks):
@@ -369,6 +382,8 @@ class MultiTenantRackTrace(BaseTraceGenerator):
                 global_s = t * sessions_per_tenant + s
                 session_id = f"{tenant_id}:s{s}"
                 gpu_id = f"gpu-{global_s % (racks * gpus_per_rack)}"
+                variation_ratio = self._prefix_variation_ratio(global_s)
+                stable_prefix_blocks = max(1, int(prefix_blocks * (1 - variation_ratio)))
                 prefix_hash = (
                     "global-policy" if cross_tenant_dedup_allowed else f"{tenant_id}:policy"
                 )
@@ -385,6 +400,12 @@ class MultiTenantRackTrace(BaseTraceGenerator):
                 )
                 for i in range(prefix_blocks):
                     shared = (s / max(1, sessions_per_tenant)) < shared_prefix_probability
+                    stable = i < stable_prefix_blocks
+                    scoped_prefix = (
+                        prefix_hash
+                        if shared and stable
+                        else f"{prefix_hash}:variant:{global_s}:{i}"
+                    )
                     events.append(
                         self._alloc(
                             i,
@@ -393,8 +414,8 @@ class MultiTenantRackTrace(BaseTraceGenerator):
                             self.profile.block_tokens,
                             EvictionClass.REUSABLE_PREFIX if shared else EvictionClass.SESSION_COLD,
                             tenant_id,
-                            prefix_hash if shared else None,
-                            sessions,
+                            scoped_prefix if shared else None,
+                            sessions if shared and stable else 1,
                             gpu_id,
                         )
                     )

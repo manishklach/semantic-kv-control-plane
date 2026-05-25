@@ -77,6 +77,7 @@ def run_benchmarks(output_dir: Path | None = None) -> pd.DataFrame:
             row["sessions"] = case.sessions
             row["context"] = case.context
             row["decode_steps"] = case.decode_steps
+            row["stall_overhead_ms"] = float(row["simulated_stall_us"]) / 1000
             rows.append(row)
     results = pd.DataFrame(rows)
     csv_path = output_dir / "benchmark_results.csv"

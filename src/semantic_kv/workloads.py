@@ -29,6 +29,12 @@ class WorkloadEvent:
     session_id: str | None = None
 
 
+def _prefix_variation_ratio(session_index: int) -> float:
+    """Return a deterministic 5-15% prefix variance ratio for one session."""
+
+    return 0.05 + (session_index % 11) / 100
+
+
 def _block(
     profile: ModelProfile,
     session_id: str,
@@ -101,11 +107,17 @@ def shared_prefix_workload(
     prefix_hash = "shared-system-prompt-v1"
     for s in range(sessions):
         session_id = f"s{s}"
+        variation_ratio = _prefix_variation_ratio(s)
+        stable_prefix_blocks = max(1, int(prefix_blocks * (1 - variation_ratio)))
         for i in range(blocks_per_session):
             if i < prefix_blocks:
                 klass = EvictionClass.REUSABLE_PREFIX
-                phash = prefix_hash
-                fanout = sessions
+                if i < stable_prefix_blocks:
+                    phash = prefix_hash
+                    fanout = max(1, sessions - int(sessions * variation_ratio))
+                else:
+                    phash = f"{prefix_hash}:variant:{s}:{i}"
+                    fanout = 1
             else:
                 klass = (
                     EvictionClass.HOT_ACTIVE
@@ -195,8 +207,15 @@ class MultiTenantInferenceWorkload:
         for s in range(sessions):
             tenant_id = f"tenant-{s % 8}"
             session_id = f"{tenant_id}:s{s}"
+            variation_ratio = _prefix_variation_ratio(s)
+            stable_prefix_blocks = max(1, int((blocks_per_session // 3) * (1 - variation_ratio)))
             for i in range(blocks_per_session):
-                prefix = f"{tenant_id}:policy-prefix" if i < blocks_per_session // 3 else None
+                if i < stable_prefix_blocks:
+                    prefix = f"{tenant_id}:policy-prefix"
+                elif i < blocks_per_session // 3:
+                    prefix = f"{tenant_id}:policy-prefix:variant:{s}:{i}"
+                else:
+                    prefix = None
                 klass = EvictionClass.REUSABLE_PREFIX if prefix else EvictionClass.SESSION_RECENT
                 events.append(
                     WorkloadEvent(
