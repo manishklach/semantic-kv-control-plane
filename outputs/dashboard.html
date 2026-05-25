@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Semantic KV Control Plane Dashboard</title>
+  <style>
+    body { margin:0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; background:#090d18; color:#e5e7eb; }
+    header { padding:40px 48px 24px; border-bottom:1px solid #1f2937; background:linear-gradient(180deg,#111827,#090d18); }
+    h1 { margin:0 0 8px; font-size:34px; letter-spacing:0; }
+    p { color:#94a3b8; max-width:880px; line-height:1.6; }
+    main { padding:28px 48px 56px; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-bottom:28px; }
+    .card { border:1px solid #1f2937; background:#111827; border-radius:8px; padding:16px; }
+    .label { color:#94a3b8; font-size:13px; }
+    .value { font-size:24px; margin-top:8px; font-weight:700; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:18px; align-items:start; }
+    .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:20px 0; }
+    .tab { color:#cbd5e1; border:1px solid #334155; padding:8px 12px; border-radius:8px; background:#111827; font-size:13px; }
+    .panel { margin-top:28px; }
+    .panel h2 { font-size:22px; margin:0 0 8px; }
+    .summary { border:1px solid #334155; background:#0f172a; border-radius:8px; padding:18px; margin-bottom:24px; }
+    figure { margin:0; border:1px solid #1f2937; background:#0f172a; border-radius:8px; overflow:hidden; }
+    img { width:100%; display:block; }
+    figcaption { padding:12px 14px; color:#cbd5e1; border-top:1px solid #1f2937; }
+    table.results { margin-top:30px; width:100%; border-collapse:collapse; font-size:13px; }
+    table.results th, table.results td { padding:9px 10px; border-bottom:1px solid #1f2937; text-align:left; }
+    table.results th { color:#93c5fd; background:#111827; position:sticky; top:0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Semantic KV Control Plane Dashboard</h1>
+    <p>Simulation-only observability view for tier occupancy, prefix reuse, bytes moved, eviction behavior, and latency pressure.</p>
+  </header>
+  <main>
+    <section class="summary"><strong>Executive Summary</strong><p>All values are synthetic simulation outputs, not real hardware measurements.</p><p>Best policy by throughput proxy: <strong>Topology-aware Semantic KV</strong>. Minimum HBM ratio vs naive max: <strong>0.00</strong>. Minimum movement ratio vs naive max: <strong>0.01</strong>. Max dedup savings: <strong>1248.75 GB</strong>. Minimum stall proxy ratio vs naive max: <strong>0.03</strong>.</p></section>
+    <section class="cards"><div class="card"><div class="label">Best Policy</div><div class="value">Topology-aware Semantic KV</div></div><div class="card"><div class="label">Min Peak HBM</div><div class="value">0.00 GB</div></div><div class="card"><div class="label">Max Dedup Saved</div><div class="value">1248.75 GB</div></div><div class="card"><div class="label">Min Bytes Moved</div><div class="value">21.41 GB</div></div></section>
+    <nav class="tabs">
+      <span class="tab">Overview</span><span class="tab">Topology</span><span class="tab">Memory Tiers</span><span class="tab">Prefix Reuse</span>
+      <span class="tab">Movement</span><span class="tab">Energy</span><span class="tab">Eviction</span><span class="tab">Trace Replay</span>
+    </nav>
+    <section class="panel"><h2>Overview</h2><p>Simulation-only overview view.</p><div class="grid"><figure><img src="paper_figures/end_to_end_summary_dashboard.png" alt="end_to_end_summary_dashboard"><figcaption>End To End Summary Dashboard</figcaption></figure>
+<figure><img src="paper_figures/peak_hbm_usage_comparison.png" alt="peak_hbm_usage_comparison"><figcaption>Peak Hbm Usage Comparison</figcaption></figure></div></section>
+<section class="panel"><h2>Topology</h2><p>Simulation-only topology view.</p><div class="grid"><figure><img src="paper_figures/topology_congestion_heatmap.png" alt="topology_congestion_heatmap"><figcaption>Topology Congestion Heatmap</figcaption></figure></div></section>
+<section class="panel"><h2>Memory Tiers</h2><p>Simulation-only memory tiers view.</p><div class="grid"><figure><img src="paper_figures/peak_hbm_usage_comparison.png" alt="peak_hbm_usage_comparison"><figcaption>Peak Hbm Usage Comparison</figcaption></figure></div></section>
+<section class="panel"><h2>Prefix Reuse</h2><p>Simulation-only prefix reuse view.</p><div class="grid"><figure><img src="paper_figures/prefix_reuse_savings.png" alt="prefix_reuse_savings"><figcaption>Prefix Reuse Savings</figcaption></figure></div></section>
+<section class="panel"><h2>Movement</h2><p>Simulation-only movement view.</p><div class="grid"><figure><img src="paper_figures/bytes_moved_comparison.png" alt="bytes_moved_comparison"><figcaption>Bytes Moved Comparison</figcaption></figure>
+<figure><img src="paper_figures/cross_rack_traffic_comparison.png" alt="cross_rack_traffic_comparison"><figcaption>Cross Rack Traffic Comparison</figcaption></figure></div></section>
+<section class="panel"><h2>Energy</h2><p>Simulation-only energy view.</p><div class="grid"><figure><img src="paper_figures/energy_per_token_comparison.png" alt="energy_per_token_comparison"><figcaption>Energy Per Token Comparison</figcaption></figure></div></section>
+<section class="panel"><h2>Eviction</h2><p>Simulation-only eviction view.</p><div class="grid"><figure><img src="paper_figures/semantic_eviction_breakdown.png" alt="semantic_eviction_breakdown"><figcaption>Semantic Eviction Breakdown</figcaption></figure></div></section>
+<section class="panel"><h2>Trace Replay</h2><p>Simulation-only trace replay view.</p><div class="grid"><figure><img src="paper_figures/prefetch_hit_rate.png" alt="prefetch_hit_rate"><figcaption>Prefetch Hit Rate</figcaption></figure></div></section>
+    <table class="dataframe results">
+  <thead>
+    <tr style="text-align: right;">
+      <th>scenario</th>
+      <th>policy</th>
+      <th>peak_hbm_gb</th>
+      <th>peak_appliance_gb</th>
+      <th>peak_cxl_gb</th>
+      <th>total_stored_gb</th>
+      <th>bytes_moved_gb</th>
+      <th>avoided_movement_gb</th>
+      <th>dedup_saved_gb</th>
+      <th>compression_saved_gb</th>
+      <th>multicast_saved_gb</th>
+      <th>cross_rack_traffic_gb</th>
+      <th>avoided_cross_rack_gb</th>
+      <th>prefetch_hit_rate</th>
+      <th>prefix_hit_rate</th>
+      <th>eviction_count</th>
+      <th>late_prefetch_count</th>
+      <th>simulated_stall_ms</th>
+      <th>simulated_energy_j</th>
+      <th>energy_per_token</th>
+      <th>throughput_score</th>
+      <th>topology_congestion_score</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>scenario_01_shared_prefix_100_sessions</td>
+      <td>Naive HBM + LRU</td>
+      <td>80.00000</td>
+      <td>0.000000</td>
+      <td>201.250000</td>
+      <td>281.250000</td>
+      <td>482.500000</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>0.000000</td>
+      <td>0.000</td>
+      <td>482.500000</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>5152</td>
+      <td>0</td>
+      <td>109.812800</td>
+      <td>1.813282</td>
+      <td>1.967536e-06</td>
+      <td>0.010000</td>
+      <td>63.816176</td>
+    </tr>
+    <tr>
+      <td>scenario_01_shared_prefix_100_sessions</td>
+      <td>Generic CXL Spill + LRU</td>
+      <td>0.00000</td>
+      <td>0.000000</td>
+      <td>281.250000</td>
+      <td>281.250000</td>
+      <td>281.250000</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>0.000000</td>
+      <td>0.000</td>
+      <td>281.250000</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1231.925007</td>
+      <td>1.056965</td>
+      <td>1.146880e-06</td>
+      <td>0.010000</td>
+      <td>49.764706</td>
+    </tr>
+    <tr>
+      <td>scenario_01_shared_prefix_100_sessions</td>
+      <td>Single-node Semantic KV</td>
+      <td>0.00000</td>
+      <td>38.699995</td>
+      <td>0.000000</td>
+      <td>38.699995</td>
+      <td>38.699995</td>
+      <td>247.500</td>
+      <td>247.500</td>
+      <td>242.550005</td>
+      <td>247.500</td>
+      <td>38.699995</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.999844</td>
+      <td>0</td>
+      <td>0</td>
+      <td>232.930108</td>
+      <td>0.145438</td>
+      <td>1.578107e-07</td>
+      <td>1.665121</td>
+      <td>4.705882</td>
+    </tr>
+    <tr>
+      <td>scenario_01_shared_prefix_100_sessions</td>
+      <td>Topology-aware Semantic KV</td>
+      <td>0.00000</td>
+      <td>7.449995</td>
+      <td>31.250000</td>
+      <td>38.699995</td>
+      <td>38.699995</td>
+      <td>247.500</td>
+      <td>247.500</td>
+      <td>242.550005</td>
+      <td>247.500</td>
+      <td>38.699995</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.999844</td>
+      <td>0</td>
+      <td>0</td>
+      <td>358.818860</td>
+      <td>0.145438</td>
+      <td>1.578107e-07</td>
+      <td>1.528032</td>
+      <td>5.529412</td>
+    </tr>
+    <tr>
+      <td>scenario_01_shared_prefix_100_sessions</td>
+      <td>Distributed Semantic KV</td>
+      <td>0.00000</td>
+      <td>7.449995</td>
+      <td>31.250000</td>
+      <td>38.699995</td>
+      <td>38.699995</td>
+      <td>247.500</td>
+      <td>247.500</td>
+      <td>242.550005</td>
+      <td>247.500</td>
+      <td>0.000000</td>
+      <td>247.500</td>
+      <td>0.0</td>
+      <td>0.999844</td>
+      <td>0</td>
+      <td>0</td>
+      <td>358.818860</td>
+      <td>0.145438</td>
+      <td>1.578107e-07</td>
+      <td>1.528032</td>
+      <td>5.529412</td>
+    </tr>
+    <tr>
+      <td>scenario_02_shared_prefix_1000_sessions</td>
+      <td>Naive HBM + LRU</td>
+      <td>80.00000</td>
+      <td>0.000000</td>
+      <td>1326.250000</td>
+      <td>1406.250000</td>
+      <td>2732.500000</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>0.000000</td>
+      <td>0.000</td>
+      <td>2732.500000</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>33952</td>
+      <td>0</td>
+      <td>596.888534</td>
+      <td>10.268998</td>
+      <td>2.228515e-06</td>
+      <td>0.010000</td>
+      <td>1139.750000</td>
+    </tr>
+    <tr>
+      <td>scenario_02_shared_prefix_1000_sessions</td>
+      <td>Generic CXL Spill + LRU</td>
+      <td>0.00000</td>
+      <td>0.000000</td>
+      <td>1406.250000</td>
+      <td>1406.250000</td>
+      <td>1406.250000</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>0.000000</td>
+      <td>0.000</td>
+      <td>1406.250000</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>0</td>
+      <td>0</td>
+      <td>8678.797016</td>
+      <td>5.284823</td>
+      <td>1.146880e-06</td>
+      <td>0.010000</td>
+      <td>596.400000</td>
+    </tr>
+    <tr>
+      <td>scenario_02_shared_prefix_1000_sessions</td>
+      <td>Single-node Semantic KV</td>
+      <td>0.00000</td>
+      <td>182.474976</td>
+      <td>0.000000</td>
+      <td>182.474976</td>
+      <td>182.474976</td>
+      <td>1248.750</td>
+      <td>1248.750</td>
+      <td>1223.775024</td>
+      <td>1248.750</td>
+      <td>182.474976</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.999969</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1706.308077</td>
+      <td>0.685759</td>
+      <td>1.488191e-07</td>
+      <td>0.010000</td>
+      <td>78.666667</td>
+    </tr>
+    <tr>
+      <td>scenario_02_shared_prefix_1000_sessions</td>
+      <td>Topology-aware Semantic KV</td>
+      <td>0.00000</td>
+      <td>26.224976</td>
+      <td>156.250000</td>
+      <td>182.474976</td>
+      <td>182.474976</td>
+      <td>1248.750</td>
+      <td>1248.750</td>
+      <td>1223.775024</td>
+      <td>1248.750</td>
+      <td>182.474976</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.999969</td>
+      <td>0</td>
+      <td>0</td>
+      <td>2964.798786</td>
+      <td>0.685759</td>
+      <td>1.488191e-07</td>
+      <td>0.010000</td>
+      <td>79.600000</td>
+    </tr>
+    <tr>
+      <td>scenario_02_shared_prefix_1000_sessions</td>
+      <td>Distributed Semantic KV</td>
+      <td>0.00000</td>
+      <td>26.224976</td>
+      <td>156.250000</td>
+      <td>182.474976</td>
+      <td>182.474976</td>
+      <td>1248.750</td>
+      <td>1248.750</td>
+      <td>1223.775024</td>
+      <td>1248.750</td>
+      <td>0.000000</td>
+      <td>1248.750</td>
+      <td>0.0</td>
+      <td>0.999969</td>
+      <td>0</td>
+      <td>0</td>
+      <td>2964.798786</td>
+      <td>0.685759</td>
+      <td>1.488191e-07</td>
+      <td>0.010000</td>
+      <td>79.600000</td>
+    </tr>
+    <tr>
+      <td>scenario_03_agentic_tool_loop</td>
+      <td>Naive HBM + LRU</td>
+      <td>80.00000</td>
+      <td>0.000000</td>
+      <td>0.000000</td>
+      <td>80.000000</td>
+      <td>80.000000</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>0.000000</td>
+      <td>0.000</td>
+      <td>80.000000</td>
+      <td>0.000</td>
+      <td>1.0</td>
+      <td>0.000000</td>
+      <td>0</td>
+      <td>0</td>
+      <td>26.707647</td>
+      <td>0.300648</td>
+      <td>1.146880e-06</td>
+      <td>1.895167</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <td>scenario_03_agentic_tool_loop</td>
+      <td>Generic CXL Spill + LRU</td>
+      <td>0.00000</td>
+      <td>0.000000</td>
+      <td>80.000000</td>
+      <td>80.000000</td>
+      <td>80.000000</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>0.000000</td>
+      <td>0.000</td>
+      <td>80.000000</td>
+      <td>0.000</td>
+      <td>1.0</td>
+      <td>0.000000</td>
+      <td>0</td>
+      <td>0</td>
+      <td>339.765625</td>
+      <td>0.300648</td>
+      <td>1.146880e-06</td>
+      <td>1.396509</td>
+      <td>19.333333</td>
+    </tr>
+    <tr>
+      <td>scenario_03_agentic_tool_loop</td>
+      <td>Single-node Semantic KV</td>
+      <td>0.00000</td>
+      <td>1.412499</td>
+      <td>0.000000</td>
+      <td>21.412499</td>
+      <td>21.412499</td>
+      <td>39.375</td>
+      <td>39.375</td>
+      <td>58.587501</td>
+      <td>39.375</td>
+      <td>21.412499</td>
+      <td>0.000</td>
+      <td>1.0</td>
+      <td>0.999023</td>
+      <td>0</td>
+      <td>0</td>
+      <td>61.424150</td>
+      <td>1.830669</td>
+      <td>6.983450e-06</td>
+      <td>2.815889</td>
+      <td>10.500000</td>
+    </tr>
+    <tr>
+      <td>scenario_03_agentic_tool_loop</td>
+      <td>Topology-aware Semantic KV</td>
+      <td>0.00000</td>
+      <td>1.412499</td>
+      <td>0.000000</td>
+      <td>21.412499</td>
+      <td>21.412499</td>
+      <td>39.375</td>
+      <td>39.375</td>
+      <td>58.587501</td>
+      <td>39.375</td>
+      <td>21.412499</td>
+      <td>0.000</td>
+      <td>1.0</td>
+      <td>0.999023</td>
+      <td>0</td>
+      <td>0</td>
+      <td>61.424150</td>
+      <td>1.830669</td>
+      <td>6.983450e-06</td>
+      <td>2.815889</td>
+      <td>10.500000</td>
+    </tr>
+    <tr>
+      <td>scenario_03_agentic_tool_loop</td>
+      <td>Distributed Semantic KV</td>
+      <td>0.00000</td>
+      <td>1.412499</td>
+      <td>0.000000</td>
+      <td>21.412499</td>
+      <td>21.412499</td>
+      <td>39.375</td>
+      <td>39.375</td>
+      <td>58.587501</td>
+      <td>39.375</td>
+      <td>0.000000</td>
+      <td>39.375</td>
+      <td>1.0</td>
+      <td>0.999023</td>
+      <td>0</td>
+      <td>0</td>
+      <td>61.424150</td>
+      <td>1.830669</td>
+      <td>6.983450e-06</td>
+      <td>2.815889</td>
+      <td>10.500000</td>
+    </tr>
+    <tr>
+      <td>scenario_04_long_context_128k</td>
+      <td>Naive HBM + LRU</td>
+      <td>80.00000</td>
+      <td>0.000000</td>
+      <td>80.000000</td>
+      <td>160.000000</td>
+      <td>240.000000</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>0.000000</td>
+      <td>0.000</td>
+      <td>240.000000</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>2048</td>
+      <td>0</td>
+      <td>56.544815</td>
+      <td>0.901943</td>
+      <td>1.720320e-06</td>
+      <td>0.657880</td>
+      <td>0.470588</td>
+    </tr>
+    <tr>
+      <td>scenario_04_long_context_128k</td>
+      <td>Generic CXL Spill + LRU</td>
+      <td>48.12500</td>
+      <td>0.000000</td>
+      <td>111.875000</td>
+      <td>160.000000</td>
+      <td>160.000000</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>0.000000</td>
+      <td>0.000</td>
+      <td>160.000000</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>0</td>
+      <td>0</td>
+      <td>20.232642</td>
+      <td>0.601295</td>
+      <td>1.146880e-06</td>
+      <td>0.823517</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <td>scenario_04_long_context_128k</td>
+      <td>Single-node Semantic KV</td>
+      <td>48.12500</td>
+      <td>0.000000</td>
+      <td>39.156250</td>
+      <td>87.281250</td>
+      <td>87.281250</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>72.718750</td>
+      <td>0.000</td>
+      <td>87.281250</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>0</td>
+      <td>0</td>
+      <td>17.534095</td>
+      <td>0.328011</td>
+      <td>6.256320e-07</td>
+      <td>0.897230</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <td>scenario_04_long_context_128k</td>
+      <td>Topology-aware Semantic KV</td>
+      <td>48.12500</td>
+      <td>0.000000</td>
+      <td>39.156250</td>
+      <td>87.281250</td>
+      <td>87.281250</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>72.718750</td>
+      <td>0.000</td>
+      <td>87.281250</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>0</td>
+      <td>0</td>
+      <td>17.534095</td>
+      <td>0.328011</td>
+      <td>6.256320e-07</td>
+      <td>0.897230</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <td>scenario_04_long_context_128k</td>
+      <td>Distributed Semantic KV</td>
+      <td>48.12500</td>
+      <td>0.000000</td>
+      <td>39.156250</td>
+      <td>87.281250</td>
+      <td>87.281250</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>72.718750</td>
+      <td>0.000</td>
+      <td>87.281250</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>0</td>
+      <td>0</td>
+      <td>17.534095</td>
+      <td>0.328011</td>
+      <td>6.256320e-07</td>
+      <td>0.897230</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <td>scenario_05_multi_tenant_rack</td>
+      <td>Naive HBM + LRU</td>
+      <td>80.00000</td>
+      <td>0.000000</td>
+      <td>320.000000</td>
+      <td>400.000000</td>
+      <td>720.000000</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>0.000000</td>
+      <td>0.000</td>
+      <td>720.000000</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>8192</td>
+      <td>0</td>
+      <td>163.957473</td>
+      <td>2.705829</td>
+      <td>2.064384e-06</td>
+      <td>0.010000</td>
+      <td>187.636364</td>
+    </tr>
+    <tr>
+      <td>scenario_05_multi_tenant_rack</td>
+      <td>Generic CXL Spill + LRU</td>
+      <td>0.00000</td>
+      <td>0.000000</td>
+      <td>400.000000</td>
+      <td>400.000000</td>
+      <td>400.000000</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>0.000000</td>
+      <td>0.000</td>
+      <td>400.000000</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>0</td>
+      <td>0</td>
+      <td>3146.066185</td>
+      <td>1.503239</td>
+      <td>1.146880e-06</td>
+      <td>0.010000</td>
+      <td>113.636364</td>
+    </tr>
+    <tr>
+      <td>scenario_05_multi_tenant_rack</td>
+      <td>Single-node Semantic KV</td>
+      <td>0.00000</td>
+      <td>94.399996</td>
+      <td>90.000000</td>
+      <td>184.399996</td>
+      <td>184.399996</td>
+      <td>220.000</td>
+      <td>220.000</td>
+      <td>215.600004</td>
+      <td>220.000</td>
+      <td>184.399996</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.998641</td>
+      <td>0</td>
+      <td>0</td>
+      <td>507.973389</td>
+      <td>0.692993</td>
+      <td>5.287117e-07</td>
+      <td>0.465790</td>
+      <td>96.000000</td>
+    </tr>
+    <tr>
+      <td>scenario_05_multi_tenant_rack</td>
+      <td>Topology-aware Semantic KV</td>
+      <td>0.00000</td>
+      <td>14.399996</td>
+      <td>170.000000</td>
+      <td>184.399996</td>
+      <td>184.399996</td>
+      <td>220.000</td>
+      <td>220.000</td>
+      <td>215.600004</td>
+      <td>220.000</td>
+      <td>184.399996</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.998641</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1612.712799</td>
+      <td>0.692993</td>
+      <td>5.287117e-07</td>
+      <td>0.010000</td>
+      <td>97.272727</td>
+    </tr>
+    <tr>
+      <td>scenario_05_multi_tenant_rack</td>
+      <td>Distributed Semantic KV</td>
+      <td>0.00000</td>
+      <td>14.399996</td>
+      <td>170.000000</td>
+      <td>184.399996</td>
+      <td>184.399996</td>
+      <td>220.000</td>
+      <td>220.000</td>
+      <td>215.600004</td>
+      <td>220.000</td>
+      <td>0.000000</td>
+      <td>220.000</td>
+      <td>0.0</td>
+      <td>0.998641</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1612.712799</td>
+      <td>0.692993</td>
+      <td>5.287117e-07</td>
+      <td>0.010000</td>
+      <td>97.272727</td>
+    </tr>
+    <tr>
+      <td>scenario_06_mixed_production</td>
+      <td>Naive HBM + LRU</td>
+      <td>80.00000</td>
+      <td>0.000000</td>
+      <td>175.000000</td>
+      <td>255.000000</td>
+      <td>430.000000</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>0.000000</td>
+      <td>0.000</td>
+      <td>430.000000</td>
+      <td>0.000</td>
+      <td>1.0</td>
+      <td>0.000000</td>
+      <td>4480</td>
+      <td>0</td>
+      <td>97.682394</td>
+      <td>1.615981</td>
+      <td>1.933955e-06</td>
+      <td>0.862396</td>
+      <td>14.285714</td>
+    </tr>
+    <tr>
+      <td>scenario_06_mixed_production</td>
+      <td>Generic CXL Spill + LRU</td>
+      <td>12.03125</td>
+      <td>0.000000</td>
+      <td>242.968750</td>
+      <td>255.000000</td>
+      <td>255.000000</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>0.000000</td>
+      <td>0.000</td>
+      <td>255.000000</td>
+      <td>0.000</td>
+      <td>1.0</td>
+      <td>0.000000</td>
+      <td>0</td>
+      <td>0</td>
+      <td>730.020864</td>
+      <td>0.958315</td>
+      <td>1.146880e-06</td>
+      <td>0.508956</td>
+      <td>11.797235</td>
+    </tr>
+    <tr>
+      <td>scenario_06_mixed_production</td>
+      <td>Single-node Semantic KV</td>
+      <td>12.03125</td>
+      <td>25.437497</td>
+      <td>9.789062</td>
+      <td>54.757809</td>
+      <td>54.757809</td>
+      <td>178.125</td>
+      <td>178.125</td>
+      <td>200.242191</td>
+      <td>178.125</td>
+      <td>54.757809</td>
+      <td>0.000</td>
+      <td>1.0</td>
+      <td>0.999566</td>
+      <td>0</td>
+      <td>0</td>
+      <td>144.677982</td>
+      <td>0.862110</td>
+      <td>1.031745e-06</td>
+      <td>2.721014</td>
+      <td>1.852535</td>
+    </tr>
+    <tr>
+      <td>scenario_06_mixed_production</td>
+      <td>Topology-aware Semantic KV</td>
+      <td>12.03125</td>
+      <td>5.437497</td>
+      <td>29.789062</td>
+      <td>54.757809</td>
+      <td>54.757809</td>
+      <td>178.125</td>
+      <td>178.125</td>
+      <td>200.242191</td>
+      <td>178.125</td>
+      <td>54.757809</td>
+      <td>0.000</td>
+      <td>1.0</td>
+      <td>0.999566</td>
+      <td>0</td>
+      <td>0</td>
+      <td>241.019226</td>
+      <td>0.862110</td>
+      <td>1.031745e-06</td>
+      <td>2.619072</td>
+      <td>1.981567</td>
+    </tr>
+    <tr>
+      <td>scenario_06_mixed_production</td>
+      <td>Distributed Semantic KV</td>
+      <td>12.03125</td>
+      <td>5.437497</td>
+      <td>29.789062</td>
+      <td>54.757809</td>
+      <td>54.757809</td>
+      <td>178.125</td>
+      <td>178.125</td>
+      <td>200.242191</td>
+      <td>178.125</td>
+      <td>0.000000</td>
+      <td>178.125</td>
+      <td>1.0</td>
+      <td>0.999566</td>
+      <td>0</td>
+      <td>0</td>
+      <td>241.019226</td>
+      <td>0.862110</td>
+      <td>1.031745e-06</td>
+      <td>2.619072</td>
+      <td>1.981567</td>
+    </tr>
+  </tbody>
+</table>
+  </main>
+</body>
+</html>

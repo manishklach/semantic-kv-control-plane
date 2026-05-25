@@ -1,0 +1,33 @@
+# Result Interpretation
+
+All findings are synthetic simulation results under workload assumptions, not hardware measurements.
+
+- **HIGH** (scenario_01_shared_prefix_100_sessions, `peak_hbm_gb`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced peak HBM usage by 100.0% vs naive HBM in scenario_01_shared_prefix_100_sessions.
+- **HIGH** (scenario_01_shared_prefix_100_sessions, `bytes_moved_gb`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced memory movement by 92.0% vs naive HBM in scenario_01_shared_prefix_100_sessions.
+- **LOW** (scenario_01_shared_prefix_100_sessions, `simulated_stall_ms`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced the decode-stall proxy by 0.0% vs naive HBM in scenario_01_shared_prefix_100_sessions.
+- **MEDIUM** (scenario_01_shared_prefix_100_sessions, `avoided_cross_rack_gb`): Simulated under synthetic workload assumptions, distributed prefix reuse avoided 247.50 GB of cross-rack KV movement in scenario_01_shared_prefix_100_sessions.
+- **MEDIUM** (scenario_01_shared_prefix_100_sessions, `compression_saved_gb`): Simulated under synthetic workload assumptions, semantic compression saved 242.55 GB in scenario_01_shared_prefix_100_sessions; quality risk is modeled, not measured.
+- **HIGH** (scenario_02_shared_prefix_1000_sessions, `peak_hbm_gb`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced peak HBM usage by 100.0% vs naive HBM in scenario_02_shared_prefix_1000_sessions.
+- **HIGH** (scenario_02_shared_prefix_1000_sessions, `bytes_moved_gb`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced memory movement by 93.3% vs naive HBM in scenario_02_shared_prefix_1000_sessions.
+- **LOW** (scenario_02_shared_prefix_1000_sessions, `simulated_stall_ms`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced the decode-stall proxy by 0.0% vs naive HBM in scenario_02_shared_prefix_1000_sessions.
+- **MEDIUM** (scenario_02_shared_prefix_1000_sessions, `avoided_cross_rack_gb`): Simulated under synthetic workload assumptions, distributed prefix reuse avoided 1248.75 GB of cross-rack KV movement in scenario_02_shared_prefix_1000_sessions.
+- **MEDIUM** (scenario_02_shared_prefix_1000_sessions, `compression_saved_gb`): Simulated under synthetic workload assumptions, semantic compression saved 1223.78 GB in scenario_02_shared_prefix_1000_sessions; quality risk is modeled, not measured.
+- **HIGH** (scenario_03_agentic_tool_loop, `peak_hbm_gb`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced peak HBM usage by 100.0% vs naive HBM in scenario_03_agentic_tool_loop.
+- **HIGH** (scenario_03_agentic_tool_loop, `bytes_moved_gb`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced memory movement by 73.2% vs naive HBM in scenario_03_agentic_tool_loop.
+- **LOW** (scenario_03_agentic_tool_loop, `simulated_stall_ms`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced the decode-stall proxy by 0.0% vs naive HBM in scenario_03_agentic_tool_loop.
+- **MEDIUM** (scenario_03_agentic_tool_loop, `avoided_cross_rack_gb`): Simulated under synthetic workload assumptions, distributed prefix reuse avoided 39.38 GB of cross-rack KV movement in scenario_03_agentic_tool_loop.
+- **MEDIUM** (scenario_03_agentic_tool_loop, `compression_saved_gb`): Simulated under synthetic workload assumptions, semantic compression saved 58.59 GB in scenario_03_agentic_tool_loop; quality risk is modeled, not measured.
+- **MEDIUM** (scenario_04_long_context_128k, `peak_hbm_gb`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced peak HBM usage by 39.8% vs naive HBM in scenario_04_long_context_128k.
+- **HIGH** (scenario_04_long_context_128k, `bytes_moved_gb`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced memory movement by 63.6% vs naive HBM in scenario_04_long_context_128k.
+- **HIGH** (scenario_04_long_context_128k, `simulated_stall_ms`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced the decode-stall proxy by 69.0% vs naive HBM in scenario_04_long_context_128k.
+- **MEDIUM** (scenario_04_long_context_128k, `compression_saved_gb`): Simulated under synthetic workload assumptions, semantic compression saved 72.72 GB in scenario_04_long_context_128k; quality risk is modeled, not measured.
+- **HIGH** (scenario_05_multi_tenant_rack, `peak_hbm_gb`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced peak HBM usage by 100.0% vs naive HBM in scenario_05_multi_tenant_rack.
+- **HIGH** (scenario_05_multi_tenant_rack, `bytes_moved_gb`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced memory movement by 74.4% vs naive HBM in scenario_05_multi_tenant_rack.
+- **LOW** (scenario_05_multi_tenant_rack, `simulated_stall_ms`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced the decode-stall proxy by 0.0% vs naive HBM in scenario_05_multi_tenant_rack.
+- **MEDIUM** (scenario_05_multi_tenant_rack, `avoided_cross_rack_gb`): Simulated under synthetic workload assumptions, distributed prefix reuse avoided 220.00 GB of cross-rack KV movement in scenario_05_multi_tenant_rack.
+- **MEDIUM** (scenario_05_multi_tenant_rack, `compression_saved_gb`): Simulated under synthetic workload assumptions, semantic compression saved 215.60 GB in scenario_05_multi_tenant_rack; quality risk is modeled, not measured.
+- **HIGH** (scenario_06_mixed_production, `peak_hbm_gb`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced peak HBM usage by 85.0% vs naive HBM in scenario_06_mixed_production.
+- **HIGH** (scenario_06_mixed_production, `bytes_moved_gb`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced memory movement by 87.3% vs naive HBM in scenario_06_mixed_production.
+- **LOW** (scenario_06_mixed_production, `simulated_stall_ms`): Simulated under synthetic workload assumptions, Distributed semantic KV reduced the decode-stall proxy by 0.0% vs naive HBM in scenario_06_mixed_production.
+- **MEDIUM** (scenario_06_mixed_production, `avoided_cross_rack_gb`): Simulated under synthetic workload assumptions, distributed prefix reuse avoided 178.12 GB of cross-rack KV movement in scenario_06_mixed_production.
+- **MEDIUM** (scenario_06_mixed_production, `compression_saved_gb`): Simulated under synthetic workload assumptions, semantic compression saved 200.24 GB in scenario_06_mixed_production; quality risk is modeled, not measured.
