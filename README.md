@@ -1,129 +1,145 @@
 # Semantic KV Control Plane
 
 [![CI](https://github.com/manishklach/semantic-kv-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/manishklach/semantic-kv-control-plane/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-pytest--cov-blue)](https://github.com/manishklach/semantic-kv-control-plane/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-90%25-blue)](https://github.com/manishklach/semantic-kv-control-plane/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/manishklach/semantic-kv-control-plane/blob/main/examples/quickstart.ipynb)
 
-A simulator for semantic KV-cache orchestration, rack-scale memory placement, and inference memory infrastructure beyond generic CXL spillover.
+A systems research platform for semantic KV-cache orchestration, topology-aware memory placement, distributed prefix reuse, and rack-scale inference memory simulation.
 
-Semantic KV Control Plane is a systems research prototype for studying what happens when KV cache is treated as distributed inference infrastructure rather than anonymous memory pressure. It is a simulator, not an inference engine. It does not run CUDA kernels, import real vLLM state, or claim hardware speedups.
+## 30-second Summary
 
-`semantic-kv-control-plane` is an exploratory systems research platform for memory-orchestrated inference infrastructure. It models how future AI serving systems may evolve beyond generic memory spillover toward semantic KV orchestration across GPU HBM, KV appliance tiers, CXL-style memory pools, and distributed memory fabrics.
+This repo explores what happens when KV cache stops looking like a runtime detail and starts looking like distributed infrastructure. It simulates metadata-aware KV placement across GPU HBM, KV appliances, CXL-style pools, and persistent tiers, then compares policy choices under synthetic but reproducible workloads. The goal is not to beat real serving systems on paper; the goal is to study the memory-orchestration layer around them.
 
-The simulator explores semantic KV metadata, topology-aware placement, rack-local and global prefix reuse, distributed semantic eviction, predictive prefetching, memory movement accounting, simulated energy/per-token costs, fabric congestion, and inference memory economics.
+> [!IMPORTANT]
+> **What this is NOT**
+>
+> - not a real GPU runtime
+> - not vLLM integration
+> - not CUDA execution
+> - not a hardware benchmark
+> - not embedding-based semantic search
 
 > **"CXL exposes memory. A KV infrastructure layer should expose intent."**
 
 ## Why This Exists
 
-LLM serving is increasingly memory-bound. Long-context inference, high concurrency, retrieval-heavy sessions, and agentic workflows all expand KV cache footprints faster than HBM capacity grows. At the same time, many requests share structure: system prompts, developer instructions, tool schemas, agent memory, and common retrieval prefixes.
+Inference serving is getting more memory-bound as context windows grow, shared prompts get larger, and agentic loops keep state alive across many decode steps. KV cache footprints grow quickly, HBM remains scarce, and simple spill behavior often treats all KV as anonymous bytes.
 
-Generic spill policies can move bytes, but they do not know which bytes represent reusable prefixes, active decode state, cheap-to-recompute tool calls, or low-attention historical context. This repo explores whether semantic KV metadata could improve placement, prefetch, compression, deduplication, and eviction decisions across HBM, appliance memory, CXL pools, and persistent tiers.
+This project asks a narrower systems question: if KV blocks carried more intent, could infrastructure make better choices about where those bytes live, when they move, which ones get reused, and which ones can be compressed or evicted early?
+
+The simulator focuses on:
+
+- semantic KV metadata
+- topology-aware placement
+- rack-local and global prefix reuse
+- distributed semantic eviction
+- predictive prefetching
+- memory movement accounting
+- simulated energy-per-token costs
+- fabric congestion
+- inference memory economics
 
 ## Core Thesis
 
-KV cache should expose enough intent for infrastructure to make better movement decisions:
+The working hypothesis is that future inference systems will need a memory control plane, not just more memory capacity.
 
-- active decode KV wants low latency
-- shared prefixes want canonical storage and fanout-aware protection
-- cold session state can tolerate pooled memory
-- low-attention or recomputable blocks can be compressed or evicted earlier
-- prefetch can hide some tier latency when future token ranges are predictable
+- Active decode KV wants low-latency placement.
+- Shared prefixes want canonical storage and fanout-aware protection.
+- Cold session state can tolerate pooled or persistent tiers.
+- Low-attention and recomputable blocks should not compete equally with hot decode state.
+- Movement cost depends on locality, congestion, and future reuse, not only on free bytes.
 
-This simulator explores whether semantic metadata could improve tiering and movement decisions.
-
-The current research direction is: **what happens when inference memory becomes a distributed systems problem?**
+This repo is a simulation platform for that control-plane layer.
 
 ## Repository Topics
 
-`ai-infrastructure` · `inference` · `kv-cache` · `memory-systems` · `cxl` · `distributed-systems` · `gpu` · `hbm` · `memory-tiering` · `llm-inference` · `systems-research` · `runtime-systems` · `semantic-caching` · `topology-aware` · `prefetching` · `memory-orchestration` · `ai-systems` · `rack-scale` · `distributed-cache` · `simulation`
+`ai-infrastructure` `inference` `kv-cache` `memory-systems` `cxl` `distributed-systems` `gpu` `hbm` `memory-tiering` `llm-inference` `systems-research` `runtime-systems` `semantic-caching` `topology-aware` `prefetching` `memory-orchestration` `ai-systems` `rack-scale` `distributed-cache` `simulation`
 
-## Architecture Diagram
+## Architecture
 
 ```text
-                         Semantic KV Control Plane
-      +----------------------------------------------------------------+
-      | metadata directory | placement | eviction | prefetch | metrics |
-      +----------------------------------------------------------------+
-               | prefix reuse       | semantic hints        ^ telemetry
-               v                    v                       |
-+--------------------------+  prefetch hot blocks  +-------------------+
-| GPU HBM                  | <-------------------- | Decode Runtime     |
-| 80 GB · 1 us · 3000 GB/s | --------------------> | synthetic events   |
-| active decode KV         |       accesses        +-------------------+
-+-------------+------------+
-              |
-              | demote / spill / canonical prefix placement
-              v
-+--------------------------+  prefix refs / dedup  +-------------------+
-| KV Appliance Tier        | <-------------------- | Prefix Directory  |
-| 512 GB · 8 us · 800 GB/s | --------------------> | hash -> blocks    |
-| reusable + recent KV     |       fanout score     +-------------------+
-+-------------+------------+
-              |
-              | cold session state / compressed low-attention KV
-              v
-+--------------------------+
-| CXL Memory Pool          |
-| 2048 GB · 40 us · 256 GB/s
-| pooled expansion memory  |
-+-------------+------------+
-              |
-              | safe-to-recompute / persistent objects
-              v
-+--------------------------+
-| Persistent Tier          |
-| 16384 GB · 300 us · 32 GB/s
-| object-style cold KV     |
-+--------------------------+
+                           Semantic KV Control Plane
+        +-------------------------------------------------------------+
+        | metadata | placement | eviction | prefetch | movement | qos |
+        +-------------------------------------------------------------+
+               |                 |                  |                ^
+               | prefix intent   | tier choice      | deadlines      | telemetry
+               v                 v                  v                |
+  +---------------------+   +---------------------+                  |
+  | GPU HBM             |<--| active decode KV    |------------------+
+  | 80 GB, 1 us, 3 TB/s |   +---------------------+
+  +----------+----------+
+             | demote / prefetch
+             v
+  +---------------------+      prefix fanout / multicast
+  | KV Appliance Tier   |<----------------------------------+
+  | 512 GB, 8 us, 800GB/s                                   |
+  +----------+----------+                                   |
+             |                                              |
+             v                                              |
+  +---------------------+                                   |
+  | CXL Memory Pool     |<----- locality + congestion ------+
+  | 2 TB, 40 us, 256GB/s
+  +----------+----------+
+             |
+             v
+  +---------------------+
+  | Persistent Tier     |
+  | 16 TB, 300 us, 32GB/s
+  +---------------------+
 ```
 
-Additional SVG diagrams:
+Key diagrams:
 
-- [KV memory hierarchy](docs/diagrams/kv_memory_hierarchy.svg)
-- [Rack-scale KV fabric](docs/diagrams/rack_scale_kv_fabric.svg)
-- [Topology-aware placement](docs/diagrams/topology_aware_placement.svg)
-- [Semantic prefetch flow](docs/diagrams/semantic_prefetch_flow.svg)
-- [Distributed prefix reuse](docs/diagrams/distributed_prefix_reuse.svg)
-- [KV movement pipeline](docs/diagrams/kv_movement_pipeline.svg)
-- [Distributed semantic eviction pipeline](docs/diagrams/semantic_eviction_pipeline.svg)
-- [Semantic eviction flow](docs/diagrams/semantic_eviction_flow.svg)
-- [Prefix reuse flow](docs/diagrams/prefix_reuse_flow.svg)
-- [KV data plane](docs/diagrams/kv_data_plane.svg)
-- [KV control plane](docs/diagrams/kv_control_plane.svg)
-
-Tier capacities, bandwidths, and latencies are simplified simulation assumptions, not hardware claims.
+- [KV memory hierarchy](docs/diagrams/kv_memory_hierarchy.svg) - tier view of HBM, appliance, CXL, and persistent KV.
+- [Rack-scale KV fabric](docs/diagrams/rack_scale_kv_fabric.svg) - multi-rack topology with GPU and appliance locality.
+- [Topology-aware placement](docs/diagrams/topology_aware_placement.svg) - how locality and congestion shape placement.
+- [Semantic prefetch flow](docs/diagrams/semantic_prefetch_flow.svg) - decode-window prediction and prefetch priority.
+- [Distributed prefix reuse](docs/diagrams/distributed_prefix_reuse.svg) - rack-local and global prefix reuse path.
+- [KV movement pipeline](docs/diagrams/kv_movement_pipeline.svg) - how movement accounting and penalties are applied.
+- [Semantic eviction pipeline](docs/diagrams/semantic_eviction_pipeline.svg) - migration-before-eviction and prefix protection.
+- [Semantic eviction flow](docs/diagrams/semantic_eviction_flow.svg) - decision flow for eviction classes.
+- [Prefix reuse flow](docs/diagrams/prefix_reuse_flow.svg) - canonical prefix registration and reuse.
+- [KV data plane](docs/diagrams/kv_data_plane.svg) - data-path perspective for tier access and movement.
+- [KV control plane](docs/diagrams/kv_control_plane.svg) - metadata-path perspective for policy orchestration.
 
 ## Comparison
 
-| Approach | What it models well | What it does not decide by itself | How this repo treats it |
+This repo is meant to sit next to existing serving concepts, not replace them.
+
+| Approach | What it models well | What it does not decide by itself | How this repo uses the idea |
 | --- | --- | --- | --- |
-| Naive HBM spill | HBM-first allocation and overflow behavior | Prefix value, recompute cost, tenant/session intent | Baseline policy with LRU spill |
-| Generic CXL | Larger memory capacity behind accelerators | Which KV blocks deserve fast memory | Baseline policy that places most non-hot KV in CXL |
-| vLLM PagedAttention | Runtime block management for efficient serving | Cross-tier semantic orchestration as a research policy | Inspiration for block granularity, not integrated in v0.1 |
-| LMCache | KV reuse/offload direction for serving systems | This repo does not replace it or benchmark against it | Related work direction; future connector mock target |
-| Semantic KV orchestration | Intent-aware placement, prefix dedup, semantic eviction, simulated prefetch | Real CUDA execution or production serving | Main experimental policy in this simulator |
+| Naive HBM spill | HBM-first allocation and overflow behavior | Prefix value, reuse fanout, recompute cost | Baseline policy |
+| Generic CXL spill | Capacity expansion behind accelerators | Which KV deserves the fast tier | Baseline policy |
+| vLLM PagedAttention | Efficient runtime block management | Rack-scale KV orchestration policy | Inspiration for block granularity |
+| TensorRT-LLM KV reuse | Prefix-based KV reuse and TTFT improvement | Cross-tier placement and eviction semantics | Related serving concept |
+| LMCache | KV movement and caching direction | Full semantic control-plane reasoning | Related cache/offload direction |
+| Metadata-Aware KV orchestration | Prefix reuse, eviction class, locality, movement cost | Real CUDA execution and production latency | Main experimental policy family here |
+
+See [docs/ecosystem_context.md](docs/ecosystem_context.md) for a more grounded comparison with vLLM, TensorRT-LLM, LMCache, and SGLang/Mooncake-style serving.
 
 ## Quickstart
 
 ```bash
 pip install -e ".[dev]"
-python -m pytest
+python -m pytest --tb=short
 python -m semantic_kv.cli compare --workload shared-prefix --sessions 100 --context 32768 --decode-steps 128
-python benchmarks/benchmark_runner.py
 python benchmarks/run_all.py
 python scripts/reproduce_all.py
-streamlit run dashboards/streamlit_app.py  # optional: pip install -e ".[dashboard]"
 ```
+
+Notebook quickstart:
+
+- [examples/quickstart.ipynb](examples/quickstart.ipynb)
 
 ## Example CLI Usage
 
 ```bash
-python -m semantic_kv.cli simulate --workload shared-prefix --sessions 100 --context 32768 --decode-steps 256 --policy semantic
+python -m semantic_kv.cli simulate --workload shared-prefix --sessions 100 --context 32768 --decode-steps 256 --policy semantic --approx-prefix
 python -m semantic_kv.cli compare --workload shared-prefix --sessions 100 --context 32768 --decode-steps 128
 python -m semantic_kv.cli kv-math --model llama70b-gqa --context 32768 --sessions 100
-python -m semantic_kv.cli plot --last-run outputs/results.csv
 python -m semantic_kv.cli generate-trace --scenario shared-enterprise --sessions 1000
 python -m semantic_kv.cli replay-trace --trace examples/traces/shared_enterprise.jsonl --policy distributed-semantic
 python -m semantic_kv.cli benchmark-suite --all
@@ -132,57 +148,58 @@ python -m semantic_kv.cli generate-blog-assets
 python -m semantic_kv.cli dashboard
 ```
 
-## Example Benchmark Output
-
-Illustrative simulation output from the shared-prefix workload:
-
-| Policy | Peak HBM | Stored | Bytes Moved | Prefix Hit | Dedup Saved | Throughput Score |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Naive HBM+LRU | 80.00 GB | 1000.00 GB | 1920.00 GB | 0% | 0.00 GB | 0.12 |
-| CXL Spill+LRU | 7.81 GB | 1000.00 GB | 1000.00 GB | 0% | 0.00 GB | 1.02 |
-| Semantic KV | 7.81 GB | 514.80 GB | 514.80 GB | ~100% | 495.00 GB | 2.50 |
-
-These are simulator numbers from synthetic workloads. They are useful for comparing policies inside this repo, not for claiming production speedups.
-
 ## Simulation Results
 
-All results in this section are synthetic simulation outputs under workload assumptions. They are not real GPU, CUDA, CXL, or network measurements.
+> [!CAUTION]
+> **Caveats**
+>
+> These numbers come from synthetic simulation workloads and simplified latency, bandwidth, congestion, and energy models. They are useful for comparing policies inside this repository. They do **not** tell you how real GPUs, NVLink, PCIe, CXL devices, or production runtimes will behave.
 
-The trace replay suite defines six reproducible scenarios:
+Reproducible benchmark scenarios:
 
 | Scenario | What it stresses |
 | --- | --- |
-| `scenario_01_shared_prefix_100_sessions` | enterprise prompt reuse across 100 sessions |
-| `scenario_02_shared_prefix_1000_sessions` | high-fanout shared prefix reuse |
-| `scenario_03_agentic_tool_loop` | ephemeral tool KV plus persistent agent memory |
-| `scenario_04_long_context_128k` | few very long contexts |
-| `scenario_05_multi_tenant_rack` | tenant-scoped prefixes on rack topology |
-| `scenario_06_mixed_production` | blended enterprise, agentic, and long-context pressure |
+| `scenario_01_shared_prefix_100_sessions` | shared enterprise prompt reuse |
+| `scenario_02_shared_prefix_1000_sessions` | very high prefix fanout |
+| `scenario_03_agentic_tool_loop` | ephemeral tool KV plus persistent memory |
+| `scenario_04_long_context_128k` | large-context residency pressure |
+| `scenario_05_multi_tenant_rack` | rack-locality plus tenant isolation |
+| `scenario_06_mixed_production` | mixed enterprise, agentic, and long-context load |
+| `approx_prefix_reuse` | exact-hash vs MinHash structural prefix matching |
 
-Example generated findings:
+Illustrative synthetic output:
 
-- Under the 100-session shared-prefix simulation, Distributed Semantic KV reduced peak HBM pressure from 80.00 GB to 0.00 GB in this synthetic setup, because shared and recent blocks were placed outside HBM rather than modeled as active decode blocks.
-- Prefix reuse avoided 247.50 GB of duplicate KV residency in the 100-session shared-prefix scenario and 1248.75 GB in the 1000-session scenario.
-- Distributed prefix accounting modeled 247.50 GB of avoided cross-rack movement in the 100-session shared-prefix scenario and 1248.75 GB in the 1000-session scenario.
-- Memory movement fell from 482.50 GB to 38.70 GB in the 100-session shared-prefix scenario under Distributed Semantic KV versus Naive HBM + LRU.
-- In these synthetic scenarios, topology-aware policies can trade lower movement for a higher congestion/stall proxy when appliance placement becomes overloaded; this is a policy signal, not a hardware result.
+| Policy | Peak HBM | Bytes Moved | Prefix Hit | Dedup Saved | Stall Overhead (simulated ms) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Naive HBM + LRU | 80.0 GB | 920.0 GB | 0% | 0.0 GB | 920 |
+| Generic CXL Spill + LRU | 42.0 GB | 780.0 GB | 0% | 0.0 GB | 640 |
+| Metadata-Aware KV | 28.0 GB | 430.0 GB | 68% | 245.0 GB | 310 |
 
-Generated result artifacts:
+Current synthetic findings from the repo's benchmark setup:
 
-- `benchmarks/results/scenario_results.csv`
-- `benchmarks/results/scenario_results.json`
-- `benchmarks/results/scenario_summary.md`
-- `benchmarks/results/scenario_findings.md`
-- `outputs/paper_figures/`
-- `outputs/blog/`
+- Shared-prefix scenarios show lower peak HBM pressure when reusable prefixes are canonicalized outside the hot decode tier.
+- Prefix reuse reduces duplicate KV residency and usually cuts movement, but deterministic 5-15% prompt variance prevents unrealistically perfect hit rates.
+- Topology-aware placement reduces modeled cross-rack traffic when shared prefixes stay closer to likely consumers.
+- Semantic eviction protects reusable prefixes and hot decode state while demoting tool-call and low-attention KV earlier.
+- Approximate prefix matching improves reuse under small prompt edits, but it remains structural token similarity, not embedding similarity.
 
-Reproduce the evidence package:
+Result artifacts:
+
+- [benchmarks/results/scenario_results.csv](benchmarks/results/scenario_results.csv)
+- [benchmarks/results/scenario_results.json](benchmarks/results/scenario_results.json)
+- [benchmarks/results/scenario_summary.md](benchmarks/results/scenario_summary.md)
+- [benchmarks/results/scenario_findings.md](benchmarks/results/scenario_findings.md)
+- [benchmarks/results/approx_prefix_reuse.csv](benchmarks/results/approx_prefix_reuse.csv)
+- [benchmarks/results/results_confidence.md](benchmarks/results/results_confidence.md)
+
+How to reproduce:
 
 ```bash
 python scripts/reproduce_all.py
+python -m pytest --tb=short
 ```
 
-Selected generated figures:
+Selected figures:
 
 ![Peak HBM comparison](outputs/paper_figures/peak_hbm_usage_comparison.png)
 ![Bytes moved comparison](outputs/paper_figures/bytes_moved_comparison.png)
@@ -191,72 +208,72 @@ Selected generated figures:
 
 ## Visuals
 
-After running `compare`, plots are written to `outputs/plots/` and a static dashboard is written to `outputs/dashboard.html`.
+The repo generates both PNG plots and a screenshot-friendly dashboard:
+
+- [outputs/dashboard.html](outputs/dashboard.html)
+- `streamlit run dashboards/streamlit_app.py`
 
 ![Tier occupancy](outputs/plots/semantic_tier_occupancy.png)
 ![HBM pressure](outputs/plots/hbm_pressure_over_time.png)
 ![Bytes moved](outputs/plots/bytes_moved_comparison.png)
 ![Dedup savings](outputs/plots/dedup_savings_comparison.png)
 ![Stall comparison](outputs/plots/stall_comparison.png)
-![Eviction classes](outputs/plots/eviction_class_histogram.png)
 
-## Benchmark Harness
+## Trace Replay
 
-`benchmarks/benchmark_runner.py` runs all policies across:
+The trace abstraction in [src/semantic_kv/traces.py](src/semantic_kv/traces.py) supports:
 
-- `shared-prefix`
-- `long-context`
-- `agentic-workflow`
-- `multi-tenant-inference`
-- `shared-enterprise-prompt`
-- `multi-agent-collaboration`
+- `SESSION_START`
+- `SESSION_END`
+- `KV_ALLOC`
+- `KV_ACCESS`
+- `KV_PREFETCH`
+- `KV_EVICT`
+- `PREFIX_LOOKUP`
+- `PREFIX_HIT`
+- `PREFIX_MISS`
+- `TOOL_CALL_START`
+- `TOOL_CALL_END`
+- `TENANT_SWITCH`
+- `DECODE_STEP`
 
-It compares:
+Today these traces are synthetic. The next step is importing runtime-shaped traces without binding the simulator to a real serving engine.
 
-- `NaiveHBMPolicy`
-- `CXLSpillPolicy`
-- `SemanticSingleNode`
-- `TopologyAwareSemantic`
-- `DistributedSemanticKV`
+## Approximate Prefix Matching
 
-It writes:
+Approximate prefix matching lives in [src/semantic_kv/approx_prefix.py](src/semantic_kv/approx_prefix.py).
 
-- `benchmarks/results/benchmark_results.csv`
-- `benchmarks/results/benchmark_summary.md`
-- aggregate policy plots under `benchmarks/results/plots/`
+- It uses MinHash over token sets.
+- It estimates structural Jaccard similarity.
+- It is **not** embedding-based semantic similarity.
+- It is intended for research on prompt-edit tolerance and reuse boundaries.
 
-Distributed metrics include avoided movement, multicast savings, avoided cross-rack bytes, energy per token, and topology congestion score.
+## Roadmap
 
-## Trace Support
-
-`src/semantic_kv/traces.py` defines a lightweight trace abstraction with `KV_ALLOC`, `KV_ACCESS`, `KV_PREFETCH`, `KV_EVICT`, `SESSION_START`, and `SESSION_END`. It is intended as the seam for future vLLM trace replay and imported serving traces.
-
-Trace replay now supports additional synthetic event types including prefix lookups/hits/misses, tool-call boundaries, tenant switches, and decode steps. Sample traces are generated under `examples/traces/`.
-
-## Ecosystem Context
-
-See [docs/ecosystem_context.md](docs/ecosystem_context.md) for a grounded comparison with vLLM PagedAttention/prefix caching, TensorRT-LLM KV reuse, LMCache, SGLang/Mooncake-style distributed serving, and CXL memory expansion. This project explores a complementary abstraction layer.
+- [x] v0.1 simulator for tiered KV placement and semantic eviction
+- [x] trace replay, benchmark suite, figures, and dashboard
+- [x] approximate structural prefix matching with MinHash
+- [ ] mock vLLM trace import connector
+- [ ] TensorRT-LLM / LMCache connector experiments
+- [ ] topology calibration from runtime-shaped traces
+- [ ] richer NVLink and intra-node bandwidth modeling
+- [ ] DPU / FPGA / NIC offload simulation
+- [ ] rack-scale KV multicast and policy search
 
 ## Limitations
 
-- Simulation only
-- No real CUDA execution
-- No real vLLM integration yet
-- No TensorRT-LLM or LMCache connector yet
-- Synthetic workloads only in v0.1
-- Simplified latency, bandwidth, and queue-depth models
-- Simplified rack and fabric topology
-- Energy model is illustrative and relative
-- Compression is ratio-only; no tensor quality validation
-- Prefix reuse is exact-match hash simulation
+- simulation only
+- synthetic workloads and traces
+- no real CUDA execution
+- no real vLLM integration yet
+- no hardware benchmark claims
+- simplified queueing, movement, and energy models
+- approximate prefix matching is structural, not semantic retrieval
 
-## Future Work
+## Further Reading
 
-- vLLM trace import and replay
-- TensorRT-LLM integration experiments
-- DPU/FPGA offload simulation for metadata and movement scheduling
-- Topology-aware placement across multi-GPU and rack-scale memory fabrics
-- Semantic multicast for shared prefix distribution
-- KV-aware NIC concepts
-- LMCache/vLLM connector mock
-- More realistic workload traces and tenant isolation policies
+- [docs/architecture.md](docs/architecture.md)
+- [docs/design_notes.md](docs/design_notes.md)
+- [docs/research_notes.md](docs/research_notes.md)
+- [docs/ecosystem_context.md](docs/ecosystem_context.md)
+- [docs/roadmap.md](docs/roadmap.md)
