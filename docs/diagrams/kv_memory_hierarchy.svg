@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="620" viewBox="0 0 980 620">
+  <defs>
+    <linearGradient id="g1" x1="0" x2="1"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#22c55e"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity=".35"/></filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M2,2 L10,6 L2,10" fill="#93c5fd"/></marker>
+  </defs>
+  <rect width="980" height="620" fill="#090d18"/>
+  <text x="50" y="62" fill="#f8fafc" font-family="Inter,Segoe UI,sans-serif" font-size="30" font-weight="700">KV Memory Hierarchy</text>
+  <text x="50" y="92" fill="#94a3b8" font-family="Inter,Segoe UI,sans-serif" font-size="15">Simulation-only tiering model for semantic KV placement</text>
+  <g filter="url(#shadow)" font-family="Inter,Segoe UI,sans-serif">
+    <rect x="170" y="130" width="640" height="78" rx="8" fill="#111827" stroke="#38bdf8"/>
+    <text x="204" y="164" fill="#e0f2fe" font-size="23" font-weight="700">GPU HBM</text>
+    <text x="204" y="189" fill="#94a3b8" font-size="14">80 GB · 1 us · 3000 GB/s · active decode KV</text>
+    <rect x="170" y="250" width="640" height="78" rx="8" fill="#111827" stroke="#22c55e"/>
+    <text x="204" y="284" fill="#dcfce7" font-size="23" font-weight="700">KV Appliance Tier</text>
+    <text x="204" y="309" fill="#94a3b8" font-size="14">512 GB · 8 us · 800 GB/s · reusable prefixes + recent sessions</text>
+    <rect x="170" y="370" width="640" height="78" rx="8" fill="#111827" stroke="#a78bfa"/>
+    <text x="204" y="404" fill="#ede9fe" font-size="23" font-weight="700">CXL Memory Pool</text>
+    <text x="204" y="429" fill="#94a3b8" font-size="14">2048 GB · 40 us · 256 GB/s · cold session state</text>
+    <rect x="170" y="490" width="640" height="78" rx="8" fill="#111827" stroke="#f97316"/>
+    <text x="204" y="524" fill="#ffedd5" font-size="23" font-weight="700">Persistent Tier</text>
+    <text x="204" y="549" fill="#94a3b8" font-size="14">16384 GB · 300 us · 32 GB/s · recomputable or long-lived KV objects</text>
+  </g>
+  <path d="M490 208 L490 250" stroke="#93c5fd" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M490 328 L490 370" stroke="#93c5fd" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M490 448 L490 490" stroke="#93c5fd" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M818 410 C910 340 910 230 818 178" fill="none" stroke="url(#g1)" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+  <text x="824" y="288" fill="#bae6fd" font-family="Inter,Segoe UI,sans-serif" font-size="14">prefetch</text>
+  <path d="M160 286 C74 250 74 190 160 166" fill="none" stroke="#22c55e" stroke-width="3" stroke-dasharray="6 5" marker-end="url(#arrow)"/>
+  <text x="48" y="230" fill="#bbf7d0" font-family="Inter,Segoe UI,sans-serif" font-size="14">prefix reuse</text>
+  <text x="650" y="468" fill="#fed7aa" font-family="Inter,Segoe UI,sans-serif" font-size="14">compression / quantized storage</text>
+</svg>

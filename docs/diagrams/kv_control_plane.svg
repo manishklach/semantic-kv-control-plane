@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="560" viewBox="0 0 980 560">
+  <rect width="980" height="560" fill="#090d18"/>
+  <text x="48" y="58" fill="#f8fafc" font-family="Inter,Segoe UI,sans-serif" font-size="30" font-weight="700">KV Control Plane</text>
+  <g font-family="Inter,Segoe UI,sans-serif">
+    <rect x="365" y="96" width="250" height="86" rx="8" fill="#10201a" stroke="#22c55e"/><text x="398" y="132" fill="#dcfce7" font-size="20">Metadata Directory</text><text x="398" y="158" fill="#94a3b8" font-size="13">session · token range · prefix hash</text>
+    <rect x="90" y="245" width="210" height="90" rx="8" fill="#111827" stroke="#38bdf8"/><text x="120" y="281" fill="#e0f2fe" font-size="18">Placement Engine</text><text x="120" y="307" fill="#94a3b8" font-size="13">tier choice + reason</text>
+    <rect x="385" y="245" width="210" height="90" rx="8" fill="#111827" stroke="#f97316"/><text x="415" y="281" fill="#ffedd5" font-size="18">Eviction Engine</text><text x="415" y="307" fill="#94a3b8" font-size="13">semantic score vs LRU</text>
+    <rect x="680" y="245" width="210" height="90" rx="8" fill="#111827" stroke="#a78bfa"/><text x="710" y="281" fill="#ede9fe" font-size="18">Prefetch Scheduler</text><text x="710" y="307" fill="#94a3b8" font-size="13">deadline + hit tracking</text>
+    <rect x="365" y="410" width="250" height="86" rx="8" fill="#111827" stroke="#facc15"/><text x="398" y="446" fill="#fef3c7" font-size="20">Metrics + Benchmark</text><text x="398" y="472" fill="#94a3b8" font-size="13">plots · CSV · dashboard</text>
+  </g>
+  <defs><marker id="a" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M2,2 L10,6 L2,10" fill="#93c5fd"/></marker></defs>
+  <path d="M435 182 L240 245" stroke="#93c5fd" stroke-width="3" marker-end="url(#a)"/><path d="M490 182 L490 245" stroke="#93c5fd" stroke-width="3" marker-end="url(#a)"/><path d="M545 182 L740 245" stroke="#93c5fd" stroke-width="3" marker-end="url(#a)"/><path d="M195 335 L420 410" stroke="#93c5fd" stroke-width="3" marker-end="url(#a)"/><path d="M490 335 L490 410" stroke="#93c5fd" stroke-width="3" marker-end="url(#a)"/><path d="M785 335 L560 410" stroke="#93c5fd" stroke-width="3" marker-end="url(#a)"/>
+</svg>

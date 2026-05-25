@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="540" viewBox="0 0 980 540">
+  <defs><marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M2,2 L10,6 L2,10" fill="#93c5fd"/></marker></defs>
+  <rect width="980" height="540" fill="#090d18"/>
+  <text x="48" y="58" fill="#f8fafc" font-family="Inter,Segoe UI,sans-serif" font-size="30" font-weight="700">Semantic Eviction Flow</text>
+  <g font-family="Inter,Segoe UI,sans-serif" font-size="16">
+    <rect x="60" y="120" width="190" height="80" rx="8" fill="#111827" stroke="#38bdf8"/><text x="88" y="154" fill="#e5e7eb">Capacity pressure</text><text x="88" y="178" fill="#94a3b8" font-size="13">required bytes</text>
+    <rect x="310" y="120" width="210" height="80" rx="8" fill="#111827" stroke="#a78bfa"/><text x="338" y="150" fill="#e5e7eb">Score candidates</text><text x="338" y="176" fill="#94a3b8" font-size="13">class · reuse · fanout · age</text>
+    <rect x="580" y="80" width="250" height="72" rx="8" fill="#10201a" stroke="#22c55e"/><text x="606" y="113" fill="#dcfce7">Protect</text><text x="606" y="136" fill="#94a3b8" font-size="13">HOT_ACTIVE · REUSABLE_PREFIX</text>
+    <rect x="580" y="190" width="250" height="72" rx="8" fill="#21150e" stroke="#f97316"/><text x="606" y="223" fill="#ffedd5">Evict first</text><text x="606" y="246" fill="#94a3b8" font-size="13">EPHEMERAL · RECOMPUTE</text>
+    <rect x="310" y="310" width="210" height="80" rx="8" fill="#111827" stroke="#facc15"/><text x="338" y="344" fill="#fef3c7">Compress</text><text x="338" y="368" fill="#94a3b8" font-size="13">LOW_ATTENTION before drop</text>
+    <rect x="600" y="330" width="190" height="80" rx="8" fill="#111827" stroke="#38bdf8"/><text x="626" y="364" fill="#e5e7eb">Move / remove</text><text x="626" y="388" fill="#94a3b8" font-size="13">update metrics</text>
+  </g>
+  <path d="M250 160 L310 160" stroke="#93c5fd" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M520 150 L580 120" stroke="#93c5fd" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M520 170 L580 225" stroke="#93c5fd" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M415 200 L415 310" stroke="#93c5fd" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M520 350 L600 370" stroke="#93c5fd" stroke-width="3" marker-end="url(#arrow)"/>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="500" viewBox="0 0 980 500">
+  <rect width="980" height="500" fill="#090d18"/>
+  <text x="48" y="58" fill="#f8fafc" font-family="Inter,Segoe UI,sans-serif" font-size="30" font-weight="700">KV Data Plane</text>
+  <g font-family="Inter,Segoe UI,sans-serif">
+    <rect x="70" y="120" width="190" height="250" rx="8" fill="#111827" stroke="#38bdf8"/><text x="102" y="158" fill="#e0f2fe" font-size="20">Runtime</text><text x="102" y="190" fill="#94a3b8" font-size="14">alloc</text><text x="102" y="218" fill="#94a3b8" font-size="14">access</text><text x="102" y="246" fill="#94a3b8" font-size="14">prefetch</text>
+    <rect x="340" y="120" width="260" height="250" rx="8" fill="#111827" stroke="#22c55e"/><text x="374" y="158" fill="#dcfce7" font-size="20">KV Block Movement</text><text x="374" y="190" fill="#94a3b8" font-size="14">HBM ⇄ appliance</text><text x="374" y="218" fill="#94a3b8" font-size="14">appliance ⇄ CXL</text><text x="374" y="246" fill="#94a3b8" font-size="14">CXL ⇄ persistent</text><text x="374" y="286" fill="#94a3b8" font-size="14">topology + bandwidth penalties</text>
+    <rect x="680" y="120" width="230" height="250" rx="8" fill="#111827" stroke="#a78bfa"/><text x="714" y="158" fill="#ede9fe" font-size="20">Telemetry</text><text x="714" y="190" fill="#94a3b8" font-size="14">bytes moved</text><text x="714" y="218" fill="#94a3b8" font-size="14">stall timeline</text><text x="714" y="246" fill="#94a3b8" font-size="14">tier occupancy</text></g>
+  <path d="M260 245 L340 245" stroke="#93c5fd" stroke-width="3" marker-end="url(#a)"/><path d="M600 245 L680 245" stroke="#93c5fd" stroke-width="3" marker-end="url(#a)"/>
+  <defs><marker id="a" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M2,2 L10,6 L2,10" fill="#93c5fd"/></marker></defs>
+</svg>
