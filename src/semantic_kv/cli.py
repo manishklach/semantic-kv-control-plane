@@ -9,6 +9,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from semantic_kv.approx_prefix import compare_exact_and_approx_prefix_hits
 from semantic_kv.dashboard import generate_static_dashboard
 from semantic_kv.metrics import (
     bytes_to_gb,
@@ -54,6 +55,14 @@ def simulate(
     context: int = typer.Option(32768),
     decode_steps: int = typer.Option(128),
     policy: str = typer.Option("semantic"),
+    approx_prefix: bool = typer.Option(
+        False,
+        "--approx-prefix",
+        help=(
+            "Evaluate approximate structural prefix reuse with MinHash. "
+            "This is token/Jaccard similarity, not embedding-based semantic search."
+        ),
+    ),
 ) -> None:
     """Run one policy on one synthetic workload."""
 
@@ -65,6 +74,27 @@ def simulate(
     table = _comparison_table()
     _add_row(table, policy_name, metrics)
     console.print(table)
+    if approx_prefix:
+        approx = compare_exact_and_approx_prefix_hits(
+            sessions=sessions,
+            prefix_tokens=max(64, min(context, 4096) // 8),
+            variation_rate=0.05,
+        )
+        approx_table = Table(title="Approximate Prefix Matching (Structural, Not Embedding-Based)")
+        approx_table.add_column("Matcher")
+        approx_table.add_column("Hit Rate")
+        approx_table.add_column("Hits")
+        approx_table.add_row(
+            "Exact hash",
+            f"{approx['exact_hit_rate']:.0%}",
+            str(approx["exact_hit_count"]),
+        )
+        approx_table.add_row(
+            "Approximate MinHash",
+            f"{approx['approx_hit_rate']:.0%}",
+            str(approx["approx_hit_count"]),
+        )
+        console.print(approx_table)
     console.print(f"Saved results to {OUTPUTS / 'last_run.csv'}")
     console.print(f"Saved plots to {PLOTS}")
 

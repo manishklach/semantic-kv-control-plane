@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from semantic_kv.analysis import ResultInterpreter
+from semantic_kv.approx_prefix import compare_exact_and_approx_prefix_hits
 from semantic_kv.metrics import bytes_to_gb
 from semantic_kv.trace_generators import (
     AgenticLoopTrace,
@@ -134,7 +135,51 @@ def run_all_scenarios(output_dir: Path) -> pd.DataFrame:
     (output_dir / "scenario_findings.md").write_text(
         ResultInterpreter(frame).to_markdown(), encoding="utf-8"
     )
+    approx_frame = run_approx_prefix_reuse(output_dir)
+    (output_dir / "approx_prefix_reuse.md").write_text(
+        _approx_prefix_markdown(approx_frame),
+        encoding="utf-8",
+    )
     _plot_scenario_bars(frame, output_dir / "plots")
+    return frame
+
+
+def run_approx_prefix_reuse(output_dir: Path) -> pd.DataFrame:
+    """Benchmark exact-hash versus approximate structural prefix matching."""
+
+    result = compare_exact_and_approx_prefix_hits(
+        sessions=500,
+        prefix_tokens=512,
+        variation_rate=0.05,
+        threshold=0.85,
+    )
+    frame = pd.DataFrame(
+        [
+            {
+                "matcher": "Exact Prefix Hash",
+                "hit_rate": result["exact_hit_rate"],
+                "hit_count": result["exact_hit_count"],
+                "sessions": result["sessions"],
+                "variation_rate": result["variation_rate"],
+                "threshold": 1.0,
+                "note": "Exact token sequence match only.",
+            },
+            {
+                "matcher": "Approximate MinHash",
+                "hit_rate": result["approx_hit_rate"],
+                "hit_count": result["approx_hit_count"],
+                "sessions": result["sessions"],
+                "variation_rate": result["variation_rate"],
+                "threshold": result["threshold"],
+                "note": "Approximate structural similarity over token sets.",
+            },
+        ]
+    )
+    frame.to_csv(output_dir / "approx_prefix_reuse.csv", index=False)
+    (output_dir / "approx_prefix_reuse.json").write_text(
+        frame.to_json(orient="records", indent=2),
+        encoding="utf-8",
+    )
     return frame
 
 
@@ -182,3 +227,18 @@ def _plot_scenario_bars(frame: pd.DataFrame, output_dir: Path) -> None:
         plt.tight_layout()
         plt.savefig(output_dir / f"{metric}.png", dpi=180)
         plt.close()
+
+
+def _approx_prefix_markdown(frame: pd.DataFrame) -> str:
+    """Render a small markdown summary for approximate prefix matching."""
+
+    lines = [
+        "# Approximate Prefix Reuse",
+        "",
+        "Structural prefix similarity results using MinHash/Jaccard over token sets.",
+        "This is not embedding-based semantic similarity or vector search.",
+        "",
+        _to_markdown(frame),
+        "",
+    ]
+    return "\n".join(lines)

@@ -168,7 +168,9 @@ def test_metrics_plots_dashboard_and_blog_assets(tmp_path) -> None:
     assert len(figures) == 10
     assert all(path.exists() for path in figures)
 
-    topology_svg = TopologyVisualizer(default_rack_topology()).render_svg(output_dir / "topology.svg")
+    topology_svg = TopologyVisualizer(default_rack_topology()).render_svg(
+        output_dir / "topology.svg"
+    )
     assert topology_svg.exists()
 
     benchmark_results = tmp_path / "benchmarks" / "results"
