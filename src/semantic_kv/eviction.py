@@ -82,8 +82,24 @@ class SemanticEviction(EvictionPolicy):
         fanout = min(block.fanout_count, 100) * 5
         prefix_bonus = 75 if block.prefix_hash else 0
         recompute = min(block.recompute_cost / 1_000_000, 100)
+        heat = block.heat_score * 120
+        attention = block.attention_importance * 90
+        decode_priority = block.decode_priority * 80
+        recompute_credit = block.recompute_worthiness * -75
         tier_penalty = self.TIER_PENALTY[block.tier]
-        return protected + reuse + fanout + prefix_bonus + recompute - age + tier_penalty
+        return (
+            protected
+            + reuse
+            + fanout
+            + prefix_bonus
+            + recompute
+            + heat
+            + attention
+            + decode_priority
+            + recompute_credit
+            - age
+            + tier_penalty
+        )
 
     def select_victim(
         self, blocks: list[KVBlock], required_bytes: int, current_step: int

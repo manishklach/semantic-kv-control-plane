@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
 
 
 def _theme() -> None:
@@ -28,7 +24,17 @@ def _theme() -> None:
     )
 
 
+def _save(fig: plt.Figure, path: Path) -> Path:
+    """Save a figure as both PNG and SVG."""
+
+    fig.savefig(path, dpi=220)
+    fig.savefig(path.with_suffix(".svg"))
+    return path
+
+
 def generate_figures(results_csv: Path | None = None, output_dir: Path | None = None) -> list[Path]:
+    """Generate publication-style PNG figures from scenario results."""
+
     _theme()
     results_csv = results_csv or ROOT / "benchmarks" / "results" / "scenario_results.csv"
     output_dir = output_dir or ROOT / "outputs" / "paper_figures"
@@ -52,6 +58,7 @@ def generate_figures(results_csv: Path | None = None, output_dir: Path | None = 
             output_dir / "semantic_eviction_breakdown.png",
         ),
         _bar(df, "prefetch_hit_rate", "Prefetch Hit Rate", output_dir / "prefetch_hit_rate.png"),
+        _bar(df, "stall_p99_ms", "p99 Stall Comparison", output_dir / "p99_stall_comparison.png"),
         _bar(
             df,
             "energy_per_token",
@@ -59,12 +66,22 @@ def generate_figures(results_csv: Path | None = None, output_dir: Path | None = 
             output_dir / "energy_per_token_comparison.png",
         ),
         _heatmap(df, "topology_congestion_score", output_dir / "topology_congestion_heatmap.png"),
+        _bar(df, "active_hbm_gb", "Active HBM Residency", output_dir / "active_hbm_residency.png"),
+        _bar(
+            df,
+            "multicast_saved_gb",
+            "Multicast Savings",
+            output_dir / "multicast_savings.png",
+        ),
+        _tradeoff(df, output_dir / "recompute_vs_transfer_tradeoff.png"),
         _summary_dashboard(df, output_dir / "end_to_end_summary_dashboard.png"),
     ]
     return outputs
 
 
 def _bar(df: pd.DataFrame, metric: str, title: str, path: Path) -> Path:
+    """Render a grouped bar chart for one scenario metric."""
+
     pivot = df.pivot(index="scenario", columns="policy", values=metric)
     ax = pivot.plot(kind="bar", figsize=(14, 7), width=0.82)
     ax.set_title(title)
@@ -72,12 +89,14 @@ def _bar(df: pd.DataFrame, metric: str, title: str, path: Path) -> Path:
     ax.grid(axis="y", alpha=0.25)
     plt.xticks(rotation=25, ha="right")
     plt.tight_layout()
-    plt.savefig(path, dpi=220)
-    plt.close()
+    _save(ax.figure, path)
+    plt.close(ax.figure)
     return path
 
 
 def _heatmap(df: pd.DataFrame, metric: str, path: Path) -> Path:
+    """Render a heatmap for one scenario metric."""
+
     pivot = df.pivot(index="scenario", columns="policy", values=metric)
     fig, ax = plt.subplots(figsize=(13, 6))
     image = ax.imshow(pivot.to_numpy(), aspect="auto", cmap="magma")
@@ -86,12 +105,14 @@ def _heatmap(df: pd.DataFrame, metric: str, path: Path) -> Path:
     ax.set_title(metric.replace("_", " ").title())
     fig.colorbar(image, ax=ax, shrink=0.82)
     fig.tight_layout()
-    fig.savefig(path, dpi=220)
+    _save(fig, path)
     plt.close(fig)
     return path
 
 
 def _memory_hierarchy(path: Path) -> Path:
+    """Render the memory hierarchy overview figure."""
+
     fig, ax = plt.subplots(figsize=(10, 7))
     ax.axis("off")
     tiers = [
@@ -111,12 +132,14 @@ def _memory_hierarchy(path: Path) -> Path:
             ax.arrow(0.5, y - 0.01, 0, -0.055, color="#93c5fd", head_width=0.02, head_length=0.02)
     ax.text(0.08, 0.95, "Semantic KV Memory Hierarchy", color="#f8fafc", fontsize=22, weight="bold")
     fig.tight_layout()
-    fig.savefig(path, dpi=220)
+    _save(fig, path)
     plt.close(fig)
     return path
 
 
 def _summary_dashboard(df: pd.DataFrame, path: Path) -> Path:
+    """Render a summary dashboard card figure."""
+
     naive = df[df["policy"] == "Naive HBM + LRU"].groupby("scenario").first()
     dist = df[df["policy"] == "Distributed Semantic KV"].groupby("scenario").first()
     hbm_reduction = ((naive["peak_hbm_gb"] - dist["peak_hbm_gb"]) / naive["peak_hbm_gb"]).clip(
@@ -151,7 +174,38 @@ def _summary_dashboard(df: pd.DataFrame, path: Path) -> Path:
         color="#94a3b8",
     )
     fig.tight_layout()
-    fig.savefig(path, dpi=220)
+    _save(fig, path)
+    plt.close(fig)
+    return path
+
+
+def _tradeoff(df: pd.DataFrame, path: Path) -> Path:
+    """Render a recompute-versus-transfer tradeoff scatter."""
+
+    fig, ax = plt.subplots(figsize=(12, 7))
+    colors = {
+        "Naive HBM + LRU": "#38bdf8",
+        "Generic CXL Spill + LRU": "#a78bfa",
+        "Single-node Semantic KV": "#22c55e",
+        "Topology-aware Semantic KV": "#f59e0b",
+        "Distributed Semantic KV": "#f97316",
+    }
+    for policy, frame in df.groupby("policy"):
+        ax.scatter(
+            frame["bytes_moved_gb"],
+            frame["compression_saved_gb"] + frame["dedup_saved_gb"],
+            s=90,
+            alpha=0.8,
+            label=policy,
+            color=colors.get(policy, "#cbd5e1"),
+        )
+    ax.set_xlabel("Bytes moved (GB)")
+    ax.set_ylabel("Recompute/compression avoidance proxy (GB)")
+    ax.set_title("Recompute vs Transfer Tradeoff")
+    ax.grid(alpha=0.25)
+    ax.legend()
+    fig.tight_layout()
+    _save(fig, path)
     plt.close(fig)
     return path
 

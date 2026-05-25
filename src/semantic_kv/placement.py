@@ -72,6 +72,8 @@ class SemanticKVPolicy(PlacementPolicy):
     ) -> PlacementDecision:
         if block.eviction_class is EvictionClass.HOT_ACTIVE:
             target, reason = MemoryTier.GPU_HBM, "active decode block"
+        elif block.heat_score >= 1.1 or block.attention_importance >= 0.8:
+            target, reason = MemoryTier.GPU_HBM, "heat-aware hot working set"
         elif block.eviction_class is EvictionClass.REUSABLE_PREFIX and block.fanout_count >= 2:
             target, reason = MemoryTier.KV_APPLIANCE, "shared prefix with fanout"
         elif block.eviction_class is EvictionClass.SESSION_RECENT:
@@ -118,6 +120,14 @@ class TopologyAwareSemanticPolicy(SemanticKVPolicy):
             reason = f"active decode near {gpu.gpu_id}; avoid fabric hop"
             return PlacementDecision(
                 MemoryTier.GPU_HBM, reason, tiers[MemoryTier.GPU_HBM].latency_us, block.bytes_stored
+            )
+        if block.heat_score >= 1.2 and congestion < 0.85:
+            reason = f"heat-aware residency near {gpu.gpu_id}; congestion={congestion:.2f}"
+            return PlacementDecision(
+                MemoryTier.GPU_HBM,
+                reason,
+                tiers[MemoryTier.GPU_HBM].latency_us + congestion * 4,
+                block.bytes_stored,
             )
         if block.eviction_class is EvictionClass.REUSABLE_PREFIX and block.fanout_count >= 4:
             self.topology.reserve_appliance(

@@ -211,6 +211,7 @@ class TraceReplayEngine:
             placement,
             eviction,
             default_tier_profiles(),
+            active_hbm_floor=0.15,
         ).run()
         return label, metrics
 

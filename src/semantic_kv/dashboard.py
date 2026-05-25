@@ -157,6 +157,8 @@ def _executive_summary(results: pd.DataFrame) -> str:
     moved_col = _first_col(results, ["bytes_moved", "bytes_moved_gb"])
     dedup_col = _first_col(results, ["dedup_saved_bytes", "dedup_saved_gb"])
     stall_col = _first_col(results, ["simulated_stall_us", "simulated_stall_ms"])
+    p99_col = _maybe_first_col(results, ["stall_p99_us", "stall_p99_ms"])
+    active_hbm_col = _maybe_first_col(results, ["reserved_active_hbm_bytes", "active_hbm_gb"])
     best = results.sort_values(throughput_col, ascending=False).iloc[0]
     hbm = (
         results[hbm_col].min() / max(float(naive[hbm_col].max() or 1), 1) if not naive.empty else 0
@@ -172,6 +174,21 @@ def _executive_summary(results: pd.DataFrame) -> str:
         if not naive.empty
         else 0
     )
+    p99 = (
+        results[p99_col].min() / max(float(naive[p99_col].max() or 1), 1)
+        if p99_col and not naive.empty
+        else None
+    )
+    active_hbm = (
+        results[active_hbm_col].max() / (1 if active_hbm_col.endswith("_gb") else 1024**3)
+        if active_hbm_col
+        else None
+    )
+    optional = ""
+    if p99 is not None:
+        optional += f" Minimum p99 stall ratio vs naive max: <strong>{p99:.2f}</strong>."
+    if active_hbm is not None:
+        optional += f" Max active HBM reservation: <strong>{active_hbm:.2f} GB</strong>."
     return (
         "<strong>Executive Summary</strong>"
         "<p>All values are synthetic simulation outputs, not real hardware measurements.</p>"
@@ -179,7 +196,8 @@ def _executive_summary(results: pd.DataFrame) -> str:
         f"Minimum HBM ratio vs naive max: <strong>{hbm:.2f}</strong>. "
         f"Minimum movement ratio vs naive max: <strong>{movement:.2f}</strong>. "
         f"Max dedup savings: <strong>{dedup:.2f} GB</strong>. "
-        f"Minimum stall proxy ratio vs naive max: <strong>{stall:.2f}</strong>.</p>"
+        f"Minimum stall proxy ratio vs naive max: <strong>{stall:.2f}</strong>."
+        f"{optional}</p>"
     )
 
 
@@ -192,7 +210,7 @@ def _images_by_tab(plots_dir: Path, base: Path) -> str:
         "Movement": ["bytes_moved", "movement", "cross_rack"],
         "Energy": ["energy"],
         "Eviction": ["eviction"],
-        "Trace Replay": ["stall", "prefetch"],
+        "Trace Replay": ["stall", "prefetch", "heat", "active_hbm"],
     }
     paths = sorted(plots_dir.glob("*.png"))
     sections: list[str] = []
@@ -218,6 +236,13 @@ def _first_col(results: pd.DataFrame, names: list[str]) -> str:
         if name in results.columns:
             return name
     raise KeyError(f"none of these columns exist: {names}")
+
+
+def _maybe_first_col(results: pd.DataFrame, names: list[str]) -> str | None:
+    for name in names:
+        if name in results.columns:
+            return name
+    return None
 
 
 def _rel(path: Path, base: Path) -> str:

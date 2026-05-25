@@ -21,8 +21,16 @@ class SimulationMetrics:
     nvme_used_peak: int = 0
     hbm_miss_count: int = 0
     simulated_stall_us: float = 0.0
+    stall_p50_us: float = 0.0
+    stall_p95_us: float = 0.0
+    stall_p99_us: float = 0.0
+    stall_p999_us: float = 0.0
     transfer_penalty_us: float = 0.0
     queue_delay_us: float = 0.0
+    fabric_wait_us: float = 0.0
+    decode_pause_us: float = 0.0
+    serialization_penalty_us: float = 0.0
+    prefetch_lateness_penalty_us: float = 0.0
     bandwidth_saturation_events: int = 0
     bytes_moved: int = 0
     bytes_avoided: int = 0
@@ -42,7 +50,12 @@ class SimulationMetrics:
     movement_history: list[dict[str, float]] = field(default_factory=list)
     latency_history: list[dict[str, float]] = field(default_factory=list)
     dedup_history: list[dict[str, float]] = field(default_factory=list)
+    heat_history: list[dict[str, float]] = field(default_factory=list)
+    active_hbm_history: list[dict[str, float]] = field(default_factory=list)
     eviction_class_counts: dict[str, int] = field(default_factory=dict)
+    failure_events: list[dict[str, float | str]] = field(default_factory=list)
+    active_hbm_floor: float = 0.15
+    reserved_active_hbm_bytes: int = 0
 
     def as_row(self, policy: str) -> dict[str, float | int | str]:
         """Flatten metrics into a CSV-friendly row."""
@@ -52,7 +65,10 @@ class SimulationMetrics:
         row.pop("movement_history", None)
         row.pop("latency_history", None)
         row.pop("dedup_history", None)
+        row.pop("heat_history", None)
+        row.pop("active_hbm_history", None)
         row.pop("eviction_class_counts", None)
+        row.pop("failure_events", None)
         row["policy"] = policy
         return row
 
@@ -184,6 +200,8 @@ def generate_observability_plots(metrics: SimulationMetrics, output_dir: Path) -
         output_dir / "dedup_savings_over_time.png",
         output_dir / "decode_stall_timeline.png",
         output_dir / "eviction_class_histogram.png",
+        output_dir / "heat_over_time.png",
+        output_dir / "active_hbm_residency.png",
     ]
     plot_tier_occupancy(metrics.occupancy_history, plots[0])
     plot_hbm_pressure(metrics.occupancy_history, plots[1])
@@ -209,6 +227,20 @@ def generate_observability_plots(metrics: SimulationMetrics, output_dir: Path) -
         plots[4],
     )
     plot_eviction_classes(metrics.eviction_class_counts, plots[5])
+    plot_timeseries(
+        metrics.heat_history,
+        "avg_heat",
+        "Average KV Heat Over Time",
+        "Heat score",
+        plots[6],
+    )
+    plot_timeseries(
+        metrics.active_hbm_history,
+        "active_hbm_gb",
+        "Active HBM Residency Over Time",
+        "Reserved active HBM (GB)",
+        plots[7],
+    )
     return plots
 
 
@@ -221,12 +253,16 @@ def plot_compare(results_csv: Path, output_dir: Path) -> list[Path]:
     saved: list[Path] = []
     plots = [
         ("hbm_used_peak", "Peak HBM Usage", "peak_hbm_comparison.png"),
+        ("reserved_active_hbm_bytes", "Active HBM Reservation", "active_hbm_comparison.png"),
         ("bytes_moved", "Bytes Moved", "bytes_moved_comparison.png"),
         ("simulated_stall_us", "Simulated Stall", "stall_comparison.png"),
+        ("stall_p99_us", "Simulated p99 Stall", "stall_p99_comparison.png"),
         ("dedup_saved_bytes", "Dedup Savings", "dedup_savings_comparison.png"),
         ("eviction_count", "Evictions", "eviction_count_comparison.png"),
     ]
     for column, title, filename in plots:
+        if column not in df:
+            continue
         plt.figure(figsize=(9, 5))
         values = df[column].map(bytes_to_gb) if "bytes" in column or "hbm" in column else df[column]
         plt.bar(df["policy"], values, color=["#38bdf8", "#a78bfa", "#22c55e"])

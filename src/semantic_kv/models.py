@@ -60,6 +60,14 @@ class KVBlock:
     compression_mode: CompressionMode = CompressionMode.NONE
     fanout_count: int = 0
     tenant_id: str | None = None
+    heat_score: float = 0.0
+    temporal_locality: float = 0.0
+    predicted_reuse_window: int = 0
+    cooling_rate: float = 0.08
+    attention_importance: float = 0.0
+    recompute_worthiness: float = 0.0
+    decode_priority: float = 0.0
+    pinned_in_hbm: bool = False
 
     @property
     def recompute_cost(self) -> float:

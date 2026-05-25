@@ -10,10 +10,18 @@ def test_simulator_produces_metrics():
     profile = MODEL_PRESETS["llama8b"]
     workload = basic_decode_workload(profile, sessions=2, context=512, decode_steps=4)
     engine = SimulationEngine(
-        profile, workload, NaiveHBMPolicy(), LRUEviction(), default_tier_profiles(scale=0.01)
+        profile,
+        workload,
+        NaiveHBMPolicy(),
+        LRUEviction(),
+        default_tier_profiles(scale=0.01),
+        active_hbm_floor=0.15,
     )
     metrics = engine.run()
     assert metrics.total_kv_created_bytes > 0
     assert metrics.hbm_used_peak > 0
     assert metrics.estimated_throughput_score > 0
     assert metrics.occupancy_history
+    assert metrics.reserved_active_hbm_bytes >= 0
+    assert metrics.reserved_active_hbm_bytes <= metrics.hbm_used_peak
+    assert metrics.stall_p99_us >= metrics.stall_p50_us

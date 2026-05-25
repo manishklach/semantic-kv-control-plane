@@ -53,6 +53,19 @@ The working hypothesis is that future inference systems will need a memory contr
 
 This repo is a simulation platform for that control-plane layer.
 
+## Architecture Evolution
+
+The current version adds realism constraints that were missing from earlier
+revisions:
+
+- an **active HBM working-set floor** so decode-hot KV cannot disappear from HBM
+- **stall percentiles** (`p50`, `p95`, `p99`, `p999`) instead of one average stall number
+- **heat-aware KV** that cools over time and resists migration when reuse is likely
+- **attention-aware importance** so some KV becomes more compressible or recomputable
+- **multicast savings modeling** for high-fanout shared prefixes
+- **topology-graph movement costs** across NVLink islands, PCIe trees, and oversubscribed rack fabrics
+- **failure and degradation modeling** for overload and emergency spill behavior
+
 ## Repository Topics
 
 `ai-infrastructure` `inference` `kv-cache` `memory-systems` `cxl` `distributed-systems` `gpu` `hbm` `memory-tiering` `llm-inference` `systems-research` `runtime-systems` `semantic-caching` `topology-aware` `prefetching` `memory-orchestration` `ai-systems` `rack-scale` `distributed-cache` `simulation`
@@ -104,6 +117,28 @@ Key diagrams:
 - [Prefix reuse flow](docs/diagrams/prefix_reuse_flow.svg) - canonical prefix registration and reuse.
 - [KV data plane](docs/diagrams/kv_data_plane.svg) - data-path perspective for tier access and movement.
 - [KV control plane](docs/diagrams/kv_control_plane.svg) - metadata-path perspective for policy orchestration.
+
+## Realism Constraints
+
+This repo now explicitly enforces several realism guards so synthetic results
+do not drift into implausible territory:
+
+- **Active HBM floor**: a configurable fraction of decode-hot KV must remain in HBM.
+- **Decode-window pinning**: accessed KV becomes temporarily protected from demotion.
+- **Percentile stall modeling**: the benchmark suite tracks `p50`, `p95`, `p99`,
+  and `p999` stall proxies.
+- **Topology penalties**: appliance and cross-rack movement pay route-aware cost.
+- **Failure mode degradation**: overload can trigger emergency spill and retry penalties.
+
+Default active HBM floor:
+
+```bash
+python -m semantic_kv.cli simulate --policy semantic --active-hbm-floor 0.15
+```
+
+In practice this means the simulator now refuses the older, too-clean outcome
+where semantic placement somehow drives active decode residency all the way to
+zero. The hot working set still has to live somewhere expensive.
 
 ## Comparison
 
@@ -177,11 +212,15 @@ Illustrative synthetic output:
 
 Current synthetic findings from the repo's benchmark setup:
 
-- Shared-prefix scenarios show lower peak HBM pressure when reusable prefixes are canonicalized outside the hot decode tier.
+- Shared-prefix scenarios show lower peak HBM pressure when reusable prefixes are
+  canonicalized outside the hot decode tier, while still maintaining an active
+  HBM working set.
 - Prefix reuse reduces duplicate KV residency and usually cuts movement, but deterministic 5-15% prompt variance prevents unrealistically perfect hit rates.
 - Topology-aware placement reduces modeled cross-rack traffic when shared prefixes stay closer to likely consumers.
 - Semantic eviction protects reusable prefixes and hot decode state while demoting tool-call and low-attention KV earlier.
 - Approximate prefix matching improves reuse under small prompt edits, but it remains structural token similarity, not embedding similarity.
+- The benchmark suite now reports `p99` and `p999` stall proxies so movement
+  savings are not mistaken for a full latency win.
 
 Result artifacts:
 
@@ -205,6 +244,8 @@ Selected figures:
 ![Bytes moved comparison](outputs/paper_figures/bytes_moved_comparison.png)
 ![Prefix reuse savings](outputs/paper_figures/prefix_reuse_savings.png)
 ![Topology congestion heatmap](outputs/paper_figures/topology_congestion_heatmap.png)
+![p99 stall comparison](outputs/paper_figures/p99_stall_comparison.png)
+![Active HBM residency](outputs/paper_figures/active_hbm_residency.png)
 
 ## Visuals
 
@@ -218,6 +259,8 @@ The repo generates both PNG plots and a screenshot-friendly dashboard:
 ![Bytes moved](outputs/plots/bytes_moved_comparison.png)
 ![Dedup savings](outputs/plots/dedup_savings_comparison.png)
 ![Stall comparison](outputs/plots/stall_comparison.png)
+![Heat over time](outputs/plots/heat_over_time.png)
+![Active HBM residency](outputs/plots/active_hbm_residency.png)
 
 ## Trace Replay
 
@@ -239,6 +282,17 @@ The trace abstraction in [src/semantic_kv/traces.py](src/semantic_kv/traces.py) 
 
 Today these traces are synthetic. The next step is importing runtime-shaped traces without binding the simulator to a real serving engine.
 
+Mock runtime-shaped connectors now live under
+[src/semantic_kv/connectors](src/semantic_kv/connectors)
+for:
+
+- `vLLMConnector`
+- `TensorRTLLMConnector`
+- `LMCacheConnector`
+
+They normalize runtime-shaped rows into the common `TraceEvent` schema without
+claiming real integration.
+
 ## Approximate Prefix Matching
 
 Approximate prefix matching lives in [src/semantic_kv/approx_prefix.py](src/semantic_kv/approx_prefix.py).
@@ -254,11 +308,39 @@ Approximate prefix matching lives in [src/semantic_kv/approx_prefix.py](src/sema
 - [x] trace replay, benchmark suite, figures, and dashboard
 - [x] approximate structural prefix matching with MinHash
 - [ ] mock vLLM trace import connector
+- [x] mock runtime-shaped connectors for vLLM / TensorRT-LLM / LMCache
 - [ ] TensorRT-LLM / LMCache connector experiments
 - [ ] topology calibration from runtime-shaped traces
 - [ ] richer NVLink and intra-node bandwidth modeling
 - [ ] DPU / FPGA / NIC offload simulation
 - [ ] rack-scale KV multicast and policy search
+
+## Failure Modes
+
+The simulator now models degraded behavior under overload:
+
+- HBM exhaustion
+- appliance overload
+- link degradation
+- congestion collapse
+- retry penalties
+- emergency spill behavior
+
+These remain synthetic control-plane events, but they help answer a more
+defensible question: how fragile is a given memory policy under pressure?
+
+## Toward Runtime-Shaped Traces
+
+The next realism step is not "pretend benchmark harder." It is feeding the
+simulator better-shaped inputs.
+
+- Today: synthetic traces and mock runtime connectors
+- Next: importers for runtime-shaped traces from systems such as vLLM,
+  TensorRT-LLM, or LMCache
+- Later: calibration against observed movement, queueing, and locality patterns
+
+That path keeps this repo grounded as policy research instead of drifting into
+fake runtime claims.
 
 ## Limitations
 
@@ -268,12 +350,15 @@ Approximate prefix matching lives in [src/semantic_kv/approx_prefix.py](src/sema
 - no real vLLM integration yet
 - no hardware benchmark claims
 - simplified queueing, movement, and energy models
+- synthetic failure and recovery behavior
 - approximate prefix matching is structural, not semantic retrieval
 
 ## Further Reading
 
 - [docs/architecture.md](docs/architecture.md)
+- [docs/calibration.md](docs/calibration.md)
 - [docs/design_notes.md](docs/design_notes.md)
 - [docs/research_notes.md](docs/research_notes.md)
+- [docs/research_questions.md](docs/research_questions.md)
 - [docs/ecosystem_context.md](docs/ecosystem_context.md)
 - [docs/roadmap.md](docs/roadmap.md)

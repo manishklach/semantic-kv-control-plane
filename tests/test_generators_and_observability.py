@@ -47,8 +47,11 @@ def _sample_results_frame() -> pd.DataFrame:
                 "eviction_count": 12,
                 "late_prefetch_count": 4,
                 "simulated_stall_ms": 120.0,
+                "stall_p99_ms": 160.0,
+                "stall_p999_ms": 240.0,
                 "simulated_energy_j": 1.8,
                 "energy_per_token": 0.002,
+                "active_hbm_gb": 2.2,
                 "throughput_score": 0.9,
                 "topology_congestion_score": 0.3,
             },
@@ -71,8 +74,11 @@ def _sample_results_frame() -> pd.DataFrame:
                 "eviction_count": 4,
                 "late_prefetch_count": 1,
                 "simulated_stall_ms": 40.0,
+                "stall_p99_ms": 55.0,
+                "stall_p999_ms": 80.0,
                 "simulated_energy_j": 0.9,
                 "energy_per_token": 0.001,
+                "active_hbm_gb": 1.4,
                 "throughput_score": 1.6,
                 "topology_congestion_score": 0.1,
             },
@@ -88,6 +94,7 @@ def _sample_compare_frame() -> pd.DataFrame:
                 "hbm_used_peak": 8 * 1024**3,
                 "bytes_moved": 7 * 1024**3,
                 "simulated_stall_us": 120_000.0,
+                "stall_p99_us": 150_000.0,
                 "dedup_saved_bytes": 0,
                 "eviction_count": 12,
             },
@@ -96,6 +103,7 @@ def _sample_compare_frame() -> pd.DataFrame:
                 "hbm_used_peak": 4 * 1024**3,
                 "bytes_moved": 3 * 1024**3,
                 "simulated_stall_us": 40_000.0,
+                "stall_p99_us": 55_000.0,
                 "dedup_saved_bytes": int(2.5 * 1024**3),
                 "eviction_count": 4,
             },
@@ -151,6 +159,11 @@ def test_metrics_plots_dashboard_and_blog_assets(tmp_path) -> None:
         movement_history=[{"step": 0, "bytes_moved_gb": 1.0}, {"step": 1, "bytes_moved_gb": 1.5}],
         latency_history=[{"step": 0, "stall_us": 10.0}, {"step": 1, "stall_us": 15.0}],
         dedup_history=[{"step": 0, "dedup_saved_gb": 0.2}, {"step": 1, "dedup_saved_gb": 0.4}],
+        heat_history=[{"step": 0, "avg_heat": 0.6}, {"step": 1, "avg_heat": 0.7}],
+        active_hbm_history=[
+            {"step": 0, "active_hbm_gb": 0.1, "hbm_floor_gb": 0.2},
+            {"step": 1, "active_hbm_gb": 0.15, "hbm_floor_gb": 0.2},
+        ],
         eviction_class_counts={"SESSION_COLD": 2, "LOW_ATTENTION": 1},
     )
     observability = generate_observability_plots(metrics, plot_dir)
@@ -165,7 +178,7 @@ def test_metrics_plots_dashboard_and_blog_assets(tmp_path) -> None:
     assert "Executive Summary" in dashboard_path.read_text(encoding="utf-8")
 
     figures = paper_figures.generate_figures(scenario_results_csv, output_dir / "paper_figures")
-    assert len(figures) == 10
+    assert len(figures) == 14
     assert all(path.exists() for path in figures)
 
     topology_svg = TopologyVisualizer(default_rack_topology()).render_svg(

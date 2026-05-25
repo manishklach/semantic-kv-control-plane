@@ -106,8 +106,11 @@ def run_scenario(scenario: Scenario) -> list[dict[str, Any]]:
             "late_prefetch_count": 0,
             "simulated_stall_ms": metrics.simulated_stall_us / 1000,
             "stall_overhead_ms": metrics.simulated_stall_us / 1000,
+            "stall_p99_ms": metrics.stall_p99_us / 1000,
+            "stall_p999_ms": metrics.stall_p999_us / 1000,
             "simulated_energy_j": metrics.movement_energy_j,
             "energy_per_token": metrics.energy_per_token,
+            "active_hbm_gb": bytes_to_gb(metrics.reserved_active_hbm_bytes),
             "throughput_score": metrics.estimated_throughput_score,
             "topology_congestion_score": metrics.topology_congestion_score,
         }
@@ -214,8 +217,10 @@ def _plot_scenario_bars(frame: pd.DataFrame, output_dir: Path) -> None:
     for metric in [
         "peak_hbm_gb",
         "bytes_moved_gb",
+        "active_hbm_gb",
         "dedup_saved_gb",
         "avoided_cross_rack_gb",
+        "stall_p99_ms",
         "energy_per_token",
         "topology_congestion_score",
     ]:

@@ -71,6 +71,7 @@ def run_benchmarks(output_dir: Path | None = None) -> pd.DataFrame:
                 placement,
                 eviction,
                 default_tier_profiles(),
+                active_hbm_floor=0.15,
             ).run()
             row = metrics.as_row(policy_name)
             row["workload"] = case.workload
@@ -92,6 +93,7 @@ def run_benchmarks(output_dir: Path | None = None) -> pd.DataFrame:
             "dedup_saved_bytes",
             "compression_saved_bytes",
             "simulated_stall_us",
+            "stall_p99_us",
             "prefetch_success_rate",
             "eviction_count",
             "bytes_avoided",

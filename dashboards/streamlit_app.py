@@ -14,6 +14,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,7 +25,10 @@ DIAGRAMS = ROOT / "docs" / "diagrams"
 
 st.set_page_config(page_title="Semantic KV Fabric", layout="wide")
 st.title("Semantic KV Control Plane")
-st.caption("Rack-scale memory-orchestrated inference simulation. Simulation only.")
+st.caption(
+    "Research operating system for inference memory orchestration. "
+    "Synthetic simulation only."
+)
 
 if RESULTS.exists():
     df = pd.read_csv(RESULTS)
@@ -32,13 +37,165 @@ if RESULTS.exists():
     c2.metric("Best throughput", f"{df['estimated_throughput_score'].max():.2f}")
     c3.metric("Max avoided movement", f"{df['bytes_avoided'].max() / (1024**3):.1f} GB")
     c4.metric("Min energy/token", f"{df['energy_per_token'].min():.2e} J")
-    st.subheader("Policy Results")
-    st.dataframe(df, use_container_width=True)
+    summary = st.container(border=True)
+    summary.subheader("Executive Summary")
+    naive = df[df["policy"].astype(str).str.contains("Naive", case=False, na=False)]
+    best = df.sort_values("estimated_throughput_score", ascending=False).iloc[0]
+    hbm_ratio = (
+        df["hbm_used_peak"].min() / max(float(naive["hbm_used_peak"].max() or 1), 1)
+        if not naive.empty
+        else None
+    )
+    p99_ratio = (
+        df["stall_p99_us"].min() / max(float(naive["stall_p99_us"].max() or 1), 1)
+        if not naive.empty and "stall_p99_us" in df
+        else None
+    )
+    summary.markdown(
+        "\n".join(
+            [
+                f"- Best throughput proxy: `{best['policy']}`",
+                (
+                    f"- Minimum peak HBM ratio vs naive max: `{hbm_ratio:.2f}`"
+                    if hbm_ratio is not None
+                    else "- Minimum peak HBM ratio vs naive max: `n/a`"
+                ),
+                (
+                    f"- Minimum p99 stall vs naive max: `{p99_ratio:.2f}`"
+                    if p99_ratio is not None
+                    else "- Minimum p99 stall vs naive max: `n/a`"
+                ),
+            ]
+        )
+    )
 
-st.subheader("Topology")
-st.image(str(DIAGRAMS / "rack_scale_kv_fabric.svg"), use_container_width=True)
+    (
+        overview,
+        topology_tab,
+        tiers_tab,
+        prefix_tab,
+        movement_tab,
+        energy_tab,
+        eviction_tab,
+        replay_tab,
+    ) = st.tabs(
+        [
+            "Overview",
+            "Topology",
+            "Memory Tiers",
+            "Prefix Reuse",
+            "Movement",
+            "Energy",
+            "Eviction",
+            "Trace Replay",
+        ]
+    )
 
-left, right = st.columns(2)
-for idx, image in enumerate(sorted(PLOTS.glob("*.png"))):
-    with left if idx % 2 == 0 else right:
-        st.image(str(image), caption=image.stem.replace("_", " ").title(), use_container_width=True)
+    with overview:
+        st.subheader("Policy Results")
+        st.dataframe(df, use_container_width=True)
+        fig = px.bar(
+            df,
+            x="policy",
+            y="estimated_throughput_score",
+            color="workload" if "workload" in df.columns else None,
+            title="Throughput Proxy by Policy",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    with topology_tab:
+        st.subheader("Live Topology Map")
+        st.image(str(DIAGRAMS / "rack_scale_kv_fabric.svg"), use_container_width=True)
+        if "topology_congestion_score" in df:
+            fig = px.bar(
+                df,
+                x="policy",
+                y="topology_congestion_score",
+                color="workload" if "workload" in df.columns else None,
+                title="Congestion Heat by Policy",
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+    with tiers_tab:
+        st.subheader("HBM Pressure and Tier Occupancy")
+        for image_name in ["semantic_tier_occupancy.png", "hbm_pressure_over_time.png"]:
+            image = PLOTS / image_name
+            if image.exists():
+                st.image(str(image), use_container_width=True)
+
+    with prefix_tab:
+        st.subheader("Prefix Reuse and Multicast")
+        for image_name in ["dedup_savings_comparison.png", "dedup_savings_over_time.png"]:
+            image = PLOTS / image_name
+            if image.exists():
+                st.image(str(image), use_container_width=True)
+
+    with movement_tab:
+        st.subheader("KV Movement and Network Pressure")
+        move_fig = px.scatter(
+            df,
+            x="bytes_moved",
+            y="bytes_avoided",
+            color="policy",
+            title="Avoided Movement vs Bytes Moved",
+        )
+        st.plotly_chart(move_fig, use_container_width=True)
+        for image_name in ["bytes_moved_comparison.png", "bytes_moved_over_time.png"]:
+            image = PLOTS / image_name
+            if image.exists():
+                st.image(str(image), use_container_width=True)
+
+    with energy_tab:
+        st.subheader("Recompute vs Move Economics")
+        if "energy_per_token" in df:
+            energy_fig = px.bar(
+                df,
+                x="policy",
+                y="energy_per_token",
+                title="Energy Per Token Proxy",
+            )
+            st.plotly_chart(energy_fig, use_container_width=True)
+
+    with eviction_tab:
+        st.subheader("Eviction and Active Decode Windows")
+        for image_name in ["eviction_count_comparison.png", "decode_stall_timeline.png"]:
+            image = PLOTS / image_name
+            if image.exists():
+                st.image(str(image), use_container_width=True)
+
+    with replay_tab:
+        st.subheader("Latency Percentiles")
+        percentile_columns = [
+            column
+            for column in ["stall_p50_us", "stall_p95_us", "stall_p99_us", "stall_p999_us"]
+            if column in df
+        ]
+        if percentile_columns:
+            melt = df.melt(
+                id_vars=["policy"],
+                value_vars=percentile_columns,
+                var_name="percentile",
+                value_name="stall_us",
+            )
+            fig = px.line(
+                melt,
+                x="percentile",
+                y="stall_us",
+                color="policy",
+                markers=True,
+                title="Simulated Stall Percentiles",
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        fig = go.Figure()
+        fig.add_bar(
+            name="Prefix hit",
+            x=df["policy"],
+            y=df.get("prefix_hit_rate", pd.Series([0] * len(df))),
+        )
+        fig.add_bar(
+            name="Prefetch hit",
+            x=df["policy"],
+            y=df.get("prefetch_success_rate", pd.Series([0] * len(df))),
+        )
+        fig.update_layout(barmode="group", title="Replay Hit Rates")
+        st.plotly_chart(fig, use_container_width=True)

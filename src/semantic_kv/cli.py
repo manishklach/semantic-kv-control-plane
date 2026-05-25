@@ -33,7 +33,14 @@ OUTPUTS = ROOT / "outputs"
 PLOTS = OUTPUTS / "plots"
 
 
-def _run(policy_name: str, workload_name: str, sessions: int, context: int, decode_steps: int):
+def _run(
+    policy_name: str,
+    workload_name: str,
+    sessions: int,
+    context: int,
+    decode_steps: int,
+    active_hbm_floor: float,
+):
     profile = MODEL_PRESETS["llama70b-gqa"]
     workload = make_workload(workload_name, profile, sessions, context, decode_steps)
     placement = make_policy(policy_name)
@@ -44,6 +51,7 @@ def _run(policy_name: str, workload_name: str, sessions: int, context: int, deco
         placement_policy=placement,
         eviction_policy=make_eviction_policy(eviction_name),
         tier_config=default_tier_profiles(),
+        active_hbm_floor=active_hbm_floor,
     )
     return placement.name, engine.run()
 
@@ -55,6 +63,7 @@ def simulate(
     context: int = typer.Option(32768),
     decode_steps: int = typer.Option(128),
     policy: str = typer.Option("semantic"),
+    active_hbm_floor: float = typer.Option(0.15, "--active-hbm-floor"),
     approx_prefix: bool = typer.Option(
         False,
         "--approx-prefix",
@@ -66,7 +75,14 @@ def simulate(
 ) -> None:
     """Run one policy on one synthetic workload."""
 
-    policy_name, metrics = _run(policy, workload, sessions, context, decode_steps)
+    policy_name, metrics = _run(
+        policy,
+        workload,
+        sessions,
+        context,
+        decode_steps,
+        active_hbm_floor,
+    )
     OUTPUTS.mkdir(exist_ok=True)
     generate_observability_plots(metrics, PLOTS)
     plot_tier_occupancy(metrics.occupancy_history, PLOTS / f"{policy_name}_tier_occupancy.png")
@@ -105,6 +121,7 @@ def compare(
     sessions: int = typer.Option(100),
     context: int = typer.Option(32768),
     decode_steps: int = typer.Option(128),
+    active_hbm_floor: float = typer.Option(0.15, "--active-hbm-floor"),
 ) -> None:
     """Compare naive HBM, CXL spill, and semantic KV policies."""
 
@@ -126,6 +143,7 @@ def compare(
             placement,
             make_eviction_policy(eviction),
             default_tier_profiles(),
+            active_hbm_floor=active_hbm_floor,
         )
         metrics = engine.run()
         rows.append(metrics.as_row(label))
@@ -277,6 +295,8 @@ def _comparison_table() -> Table:
         "Stored",
         "Bytes Moved",
         "Stall us",
+        "p99 Stall us",
+        "Active HBM",
         "Prefix Hit",
         "Dedup Saved",
         "Compression Saved",
@@ -294,6 +314,8 @@ def _add_row(table: Table, policy: str, metrics) -> None:
         f"{bytes_to_gb(metrics.total_stored_bytes):.2f} GB",
         f"{bytes_to_gb(metrics.bytes_moved):.2f} GB",
         f"{metrics.simulated_stall_us:.0f}",
+        f"{metrics.stall_p99_us:.0f}",
+        f"{bytes_to_gb(metrics.reserved_active_hbm_bytes):.2f} GB",
         f"{metrics.prefix_hit_rate:.0%}",
         f"{bytes_to_gb(metrics.dedup_saved_bytes):.2f} GB",
         f"{bytes_to_gb(metrics.compression_saved_bytes):.2f} GB",
