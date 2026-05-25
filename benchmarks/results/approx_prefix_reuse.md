@@ -1,0 +1,9 @@
+# Approximate Prefix Reuse
+
+Structural prefix similarity results using MinHash/Jaccard over token sets.
+This is not embedding-based semantic similarity or vector search.
+
+| matcher | hit_rate | hit_count | sessions | variation_rate | threshold | note |
+| --- | --- | --- | --- | --- | --- | --- |
+| Exact Prefix Hash | 0.0 | 0 | 500 | 0.05 | 1.0 | Exact token sequence match only. |
+| Approximate MinHash | 0.998 | 499 | 500 | 0.05 | 0.85 | Approximate structural similarity over token sets. |

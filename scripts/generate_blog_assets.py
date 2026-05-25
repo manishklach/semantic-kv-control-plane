@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -14,6 +15,11 @@ BLOG_TITLE = "When KV Cache Becomes a Distributed Systems Problem"
 
 def generate_blog_assets(output_dir: Path | None = None) -> Path:
     """Build blog-ready markdown and figure assets from benchmark outputs."""
+
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    if str(ROOT / "src") not in sys.path:
+        sys.path.insert(0, str(ROOT / "src"))
 
     from scripts.generate_paper_figures import generate_figures
     from semantic_kv.analysis import ResultInterpreter

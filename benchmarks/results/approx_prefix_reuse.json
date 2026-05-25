@@ -1,0 +1,20 @@
+[
+  {
+    "matcher":"Exact Prefix Hash",
+    "hit_rate":0.0,
+    "hit_count":0,
+    "sessions":500,
+    "variation_rate":0.05,
+    "threshold":1.0,
+    "note":"Exact token sequence match only."
+  },
+  {
+    "matcher":"Approximate MinHash",
+    "hit_rate":0.998,
+    "hit_count":499,
+    "sessions":500,
+    "variation_rate":0.05,
+    "threshold":0.85,
+    "note":"Approximate structural similarity over token sets."
+  }
+]

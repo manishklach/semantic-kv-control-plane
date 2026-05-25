@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -9,6 +10,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> None:
     """Generate traces, benchmark results, figures, and blog assets."""
+
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    if str(ROOT / "src") not in sys.path:
+        sys.path.insert(0, str(ROOT / "src"))
 
     from benchmarks.scenarios import run_all_scenarios
     from scripts.generate_blog_assets import generate_blog_assets
