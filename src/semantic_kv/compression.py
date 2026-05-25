@@ -22,10 +22,14 @@ QUALITY_RISK: dict[CompressionMode, str] = {
 
 
 def compressed_size(bytes_uncompressed: int, mode: CompressionMode) -> int:
+    """Return simulated stored bytes for a compression mode."""
+
     return max(1, int(bytes_uncompressed * COMPRESSION_RATIOS[mode]))
 
 
 def apply_compression(block: KVBlock, mode: CompressionMode) -> int:
+    """Apply simulated compression metadata to a KV block and return saved bytes."""
+
     before = block.bytes_stored
     block.compression_mode = mode
     block.compressed = mode is not CompressionMode.NONE

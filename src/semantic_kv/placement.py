@@ -11,6 +11,8 @@ from semantic_kv.topology import RackTopology, default_rack_topology
 
 @dataclass(frozen=True)
 class PlacementDecision:
+    """Describe the selected destination tier for a KV block."""
+
     target_tier: MemoryTier
     reason: str
     expected_latency_us: float
@@ -18,6 +20,8 @@ class PlacementDecision:
 
 
 class PlacementPolicy:
+    """Interface for tier placement decisions."""
+
     name = "base"
 
     def choose_tier(
@@ -27,6 +31,8 @@ class PlacementPolicy:
 
 
 class NaiveHBMPolicy(PlacementPolicy):
+    """Keep KV in HBM until pressure forces LRU demotion."""
+
     name = "naive-hbm"
 
     def choose_tier(
@@ -38,6 +44,8 @@ class NaiveHBMPolicy(PlacementPolicy):
 
 
 class CXLSpillPolicy(PlacementPolicy):
+    """Reserve HBM for hot blocks and spill the rest to pooled memory."""
+
     name = "cxl-spill"
 
     def choose_tier(
@@ -55,6 +63,8 @@ class CXLSpillPolicy(PlacementPolicy):
 
 
 class SemanticKVPolicy(PlacementPolicy):
+    """Place KV by semantic class, reuse, and recompute friendliness."""
+
     name = "semantic"
 
     def choose_tier(
@@ -79,11 +89,20 @@ class SemanticKVPolicy(PlacementPolicy):
 
         for fallback in [target, MemoryTier.CXL_POOL, MemoryTier.NVME_OBJECT]:
             if tiers[fallback].can_fit(block):
-                return PlacementDecision(fallback, reason, tiers[fallback].latency_us, block.bytes_stored)
-        return PlacementDecision(MemoryTier.NVME_OBJECT, "oversubscribed fallback", tiers[MemoryTier.NVME_OBJECT].latency_us, block.bytes_stored)
+                return PlacementDecision(
+                    fallback, reason, tiers[fallback].latency_us, block.bytes_stored
+                )
+        return PlacementDecision(
+            MemoryTier.NVME_OBJECT,
+            "oversubscribed fallback",
+            tiers[MemoryTier.NVME_OBJECT].latency_us,
+            block.bytes_stored,
+        )
 
 
 class TopologyAwareSemanticPolicy(SemanticKVPolicy):
+    """Extend semantic placement with rack-locality and congestion awareness."""
+
     name = "topology-aware-semantic"
 
     def __init__(self, topology: RackTopology | None = None) -> None:
@@ -97,20 +116,30 @@ class TopologyAwareSemanticPolicy(SemanticKVPolicy):
         congestion = self.topology.congestion_penalty(gpu.gpu_id, appliance.appliance_id)
         if block.eviction_class is EvictionClass.HOT_ACTIVE:
             reason = f"active decode near {gpu.gpu_id}; avoid fabric hop"
-            return PlacementDecision(MemoryTier.GPU_HBM, reason, tiers[MemoryTier.GPU_HBM].latency_us, block.bytes_stored)
+            return PlacementDecision(
+                MemoryTier.GPU_HBM, reason, tiers[MemoryTier.GPU_HBM].latency_us, block.bytes_stored
+            )
         if block.eviction_class is EvictionClass.REUSABLE_PREFIX and block.fanout_count >= 4:
-            self.topology.reserve_appliance(appliance.appliance_id, min(0.1, block.fanout_count / 10_000))
+            self.topology.reserve_appliance(
+                appliance.appliance_id, min(0.1, block.fanout_count / 10_000)
+            )
             latency = tiers[MemoryTier.KV_APPLIANCE].latency_us + congestion * 10
-            reason = f"rack-local prefix cache on {appliance.appliance_id}; fanout={block.fanout_count}"
+            reason = (
+                f"rack-local prefix cache on {appliance.appliance_id}; fanout={block.fanout_count}"
+            )
             return PlacementDecision(MemoryTier.KV_APPLIANCE, reason, latency, block.bytes_stored)
         if block.eviction_class in {EvictionClass.SESSION_RECENT, EvictionClass.LOW_ATTENTION}:
             target = MemoryTier.KV_APPLIANCE if congestion < 0.75 else MemoryTier.CXL_POOL
             reason = f"locality-aware recent KV; congestion={congestion:.2f}"
-            return PlacementDecision(target, reason, tiers[target].latency_us + congestion * 8, block.bytes_stored)
+            return PlacementDecision(
+                target, reason, tiers[target].latency_us + congestion * 8, block.bytes_stored
+            )
         return super().choose_tier(block, tiers)
 
 
 class DistributedSemanticKVPolicy(TopologyAwareSemanticPolicy):
+    """Anchor high-fanout prefixes for rack-scale reuse and multicast."""
+
     name = "distributed-semantic-kv"
 
     def choose_tier(
@@ -122,7 +151,8 @@ class DistributedSemanticKVPolicy(TopologyAwareSemanticPolicy):
             appliance = self.topology.preferred_appliance(gpu.gpu_id)
             return PlacementDecision(
                 MemoryTier.KV_APPLIANCE,
-                f"distributed prefix multicast anchor on {appliance.appliance_id}; fanout={block.fanout_count}",
+                "distributed prefix multicast anchor on "
+                f"{appliance.appliance_id}; fanout={block.fanout_count}",
                 max(1.0, decision.expected_latency_us * 0.8),
                 block.bytes_stored,
             )
@@ -130,6 +160,8 @@ class DistributedSemanticKVPolicy(TopologyAwareSemanticPolicy):
 
 
 def make_policy(name: str) -> PlacementPolicy:
+    """Construct a placement policy from a user-facing name."""
+
     normalized = name.lower()
     if normalized in {"naive", "naive-hbm", "hbm"}:
         return NaiveHBMPolicy()

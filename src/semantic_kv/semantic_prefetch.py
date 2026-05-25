@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from semantic_kv.models import MemoryTier
 
 
-class PrefetchPriority(str, Enum):
+class PrefetchPriority(StrEnum):
+    """Priority buckets for semantic prefetch requests."""
+
     URGENT = "URGENT"
     HOT_PATH = "HOT_PATH"
     WARM_PATH = "WARM_PATH"
@@ -17,6 +19,8 @@ class PrefetchPriority(str, Enum):
 
 @dataclass(frozen=True)
 class SemanticPrefetchPlan:
+    """Describe a predicted KV movement needed before a decode stall."""
+
     session_id: str
     target_tier: MemoryTier
     token_start: int
@@ -28,6 +32,8 @@ class SemanticPrefetchPlan:
 
 @dataclass
 class PredictivePrefetchEngine:
+    """Track simple semantic prefetch planning and hit accounting."""
+
     prefetch_requests: int = 0
     prefetch_hits: int = 0
     avoided_decode_stalls: float = 0.0
@@ -43,6 +49,8 @@ class PredictivePrefetchEngine:
         active_tool_loop: bool = False,
         beam_divergence: float = 0.0,
     ) -> SemanticPrefetchPlan:
+        """Create a simulated prefetch plan from lightweight session signals."""
+
         if active_tool_loop or decode_velocity_tps > 120:
             priority = PrefetchPriority.URGENT
             reason = "fast decode or active tool loop"
@@ -68,6 +76,8 @@ class PredictivePrefetchEngine:
         )
 
     def mark_result(self, hit: bool, avoided_stall_us: float = 0.0, wasted_bytes: int = 0) -> None:
+        """Record whether a scheduled prefetch arrived before use."""
+
         self.prefetch_requests += 1
         if hit:
             self.prefetch_hits += 1
@@ -78,4 +88,6 @@ class PredictivePrefetchEngine:
 
     @property
     def prefetch_hit_rate(self) -> float:
+        """Return the fraction of scheduled prefetches that were hits."""
+
         return self.prefetch_hits / self.prefetch_requests if self.prefetch_requests else 0.0

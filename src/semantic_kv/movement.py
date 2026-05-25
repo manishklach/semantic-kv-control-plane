@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 from semantic_kv.models import MemoryTier
 
-
 ENERGY_PJ_PER_BYTE = {
     "hbm": 3.5,
     "pcie": 18.0,
@@ -18,6 +17,8 @@ ENERGY_PJ_PER_BYTE = {
 
 @dataclass
 class MovementStats:
+    """Accumulate movement, avoidance, and energy counters."""
+
     bytes_moved: int = 0
     bytes_avoided: int = 0
     multicast_saved_bytes: int = 0
@@ -28,6 +29,8 @@ class MovementStats:
 
     @property
     def energy_per_token(self) -> float:
+        """Estimate movement energy normalized by moved megabytes."""
+
         moved_mb = self.bytes_moved / (1024**2)
         return self.movement_energy_j / moved_mb if moved_mb else 0.0
 
@@ -42,7 +45,9 @@ class MovementAnalyzer:
     def __init__(self) -> None:
         self.stats = MovementStats()
 
-    def record_move(self, bytes_moved: int, source: MemoryTier, target: MemoryTier, cross_rack: bool = False) -> None:
+    def record_move(
+        self, bytes_moved: int, source: MemoryTier, target: MemoryTier, cross_rack: bool = False
+    ) -> None:
         self.stats.bytes_moved += bytes_moved
         mode = "cross_rack" if cross_rack else self._mode(source, target)
         self.stats.movement_energy_j += bytes_moved * ENERGY_PJ_PER_BYTE[mode] * 1e-12

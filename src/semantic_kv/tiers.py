@@ -11,6 +11,8 @@ GB = 1024**3
 
 @dataclass
 class MemoryTierState:
+    """Track capacity, latency, and residency for one memory tier."""
+
     name: MemoryTier
     capacity_bytes: int
     bandwidth_gbps: float
@@ -19,10 +21,14 @@ class MemoryTierState:
     stored_block_ids: set[str] = field(default_factory=set)
 
     def can_fit(self, block: KVBlock | int) -> bool:
+        """Return whether the tier can fit the requested bytes or block."""
+
         required = block if isinstance(block, int) else block.bytes_stored
         return self.used_bytes + required <= self.capacity_bytes
 
     def add_block(self, block: KVBlock) -> None:
+        """Place a block into the tier and update accounting."""
+
         if block.block_id in self.stored_block_ids:
             return
         if not self.can_fit(block):
@@ -32,12 +38,16 @@ class MemoryTierState:
         block.tier = self.name
 
     def remove_block(self, block: KVBlock) -> None:
+        """Remove a block from the tier if it is present."""
+
         if block.block_id not in self.stored_block_ids:
             return
         self.stored_block_ids.remove(block.block_id)
         self.used_bytes = max(0, self.used_bytes - block.bytes_stored)
 
     def occupancy_pct(self) -> float:
+        """Return tier occupancy as a percentage."""
+
         return 100.0 * self.used_bytes / self.capacity_bytes if self.capacity_bytes else 0.0
 
 

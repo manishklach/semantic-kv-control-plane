@@ -9,6 +9,8 @@ import pandas as pd
 
 @dataclass(frozen=True)
 class Finding:
+    """Represent one human-readable benchmark interpretation."""
+
     text: str
     confidence: str
     scenario: str
@@ -59,7 +61,9 @@ class ResultInterpreter:
                 if avoided > 0:
                     findings.append(
                         Finding(
-                            f"Simulated under synthetic workload assumptions, distributed prefix reuse avoided {avoided:.2f} GB of cross-rack KV movement in {scenario}.",
+                            "Simulated under synthetic workload assumptions, "
+                            f"distributed prefix reuse avoided {avoided:.2f} GB "
+                            f"of cross-rack KV movement in {scenario}.",
                             "MEDIUM",
                             scenario,
                             "avoided_cross_rack_gb",
@@ -68,7 +72,10 @@ class ResultInterpreter:
             if semantic is not None and semantic.get("compression_saved_gb", 0) > 0:
                 findings.append(
                     Finding(
-                        f"Simulated under synthetic workload assumptions, semantic compression saved {semantic['compression_saved_gb']:.2f} GB in {scenario}; quality risk is modeled, not measured.",
+                        "Simulated under synthetic workload assumptions, "
+                        "semantic compression saved "
+                        f"{semantic['compression_saved_gb']:.2f} GB in {scenario}; "
+                        "quality risk is modeled, not measured.",
                         "MEDIUM",
                         scenario,
                         "compression_saved_gb",
@@ -80,11 +87,15 @@ class ResultInterpreter:
         lines = [
             "# Result Interpretation",
             "",
-            "All findings are synthetic simulation results under workload assumptions, not hardware measurements.",
+            "All findings are synthetic simulation results under workload "
+            "assumptions, not hardware measurements.",
             "",
         ]
         for finding in self.findings():
-            lines.append(f"- **{finding.confidence}** ({finding.scenario}, `{finding.metric}`): {finding.text}")
+            lines.append(
+                f"- **{finding.confidence}** ({finding.scenario}, "
+                f"`{finding.metric}`): {finding.text}"
+            )
         return "\n".join(lines) + "\n"
 
     def _relative_finding(
@@ -102,7 +113,8 @@ class ResultInterpreter:
         improvement = max(0.0, (base - cand) / base * 100)
         confidence = "HIGH" if improvement >= 40 else "MEDIUM" if improvement >= 15 else "LOW"
         return Finding(
-            f"Simulated under synthetic workload assumptions, {phrase} by {improvement:.1f}% vs naive HBM in {scenario}.",
+            "Simulated under synthetic workload assumptions, "
+            f"{phrase} by {improvement:.1f}% vs naive HBM in {scenario}.",
             confidence,
             scenario,
             metric,

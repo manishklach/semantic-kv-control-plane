@@ -16,7 +16,6 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "benchmarks" / "results" / "benchmark_results.csv"
 PLOTS = ROOT / "outputs" / "plots"
@@ -41,5 +40,5 @@ st.image(str(DIAGRAMS / "rack_scale_kv_fabric.svg"), use_container_width=True)
 
 left, right = st.columns(2)
 for idx, image in enumerate(sorted(PLOTS.glob("*.png"))):
-    with (left if idx % 2 == 0 else right):
+    with left if idx % 2 == 0 else right:
         st.image(str(image), caption=image.stem.replace("_", " ").title(), use_container_width=True)

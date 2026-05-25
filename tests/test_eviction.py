@@ -23,7 +23,10 @@ def _block(block_id, last_access, klass):
 
 
 def test_lru_evicts_oldest():
-    blocks = [_block("old", 1, EvictionClass.SESSION_RECENT), _block("new", 10, EvictionClass.SESSION_RECENT)]
+    blocks = [
+        _block("old", 1, EvictionClass.SESSION_RECENT),
+        _block("new", 10, EvictionClass.SESSION_RECENT),
+    ]
     result = LRUEviction().select_victim(blocks, 100, 20)
     assert result.victims[0].block_id == "old"
 

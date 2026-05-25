@@ -11,6 +11,8 @@ import pandas as pd
 
 @dataclass
 class SimulationMetrics:
+    """Aggregate counters, histories, and derived metrics for one simulation."""
+
     total_kv_created_bytes: int = 0
     total_stored_bytes: int = 0
     hbm_used_peak: int = 0
@@ -43,6 +45,8 @@ class SimulationMetrics:
     eviction_class_counts: dict[str, int] = field(default_factory=dict)
 
     def as_row(self, policy: str) -> dict[str, float | int | str]:
+        """Flatten metrics into a CSV-friendly row."""
+
         row = asdict(self)
         row.pop("occupancy_history", None)
         row.pop("movement_history", None)
@@ -54,10 +58,14 @@ class SimulationMetrics:
 
 
 def bytes_to_gb(value: float) -> float:
+    """Convert bytes to gibibytes for reporting."""
+
     return value / (1024**3)
 
 
 def write_results_csv(rows: list[dict[str, float | int | str]], path: Path) -> None:
+    """Write benchmark result rows to CSV."""
+
     path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).to_csv(path, index=False)
 
@@ -82,6 +90,8 @@ def _use_dark_theme() -> None:
 
 
 def plot_tier_occupancy(history: list[dict[str, float]], output: Path) -> None:
+    """Plot used capacity per tier over simulation time."""
+
     if not history:
         return
     _use_dark_theme()
@@ -102,6 +112,8 @@ def plot_tier_occupancy(history: list[dict[str, float]], output: Path) -> None:
 
 
 def plot_hbm_pressure(history: list[dict[str, float]], output: Path) -> None:
+    """Plot HBM usage over simulation time."""
+
     if not history:
         return
     _use_dark_theme()
@@ -119,7 +131,11 @@ def plot_hbm_pressure(history: list[dict[str, float]], output: Path) -> None:
     plt.close()
 
 
-def plot_timeseries(history: list[dict[str, float]], column: str, title: str, ylabel: str, output: Path) -> None:
+def plot_timeseries(
+    history: list[dict[str, float]], column: str, title: str, ylabel: str, output: Path
+) -> None:
+    """Plot one numeric timeseries column from metric history."""
+
     if not history:
         return
     _use_dark_theme()
@@ -140,6 +156,8 @@ def plot_timeseries(history: list[dict[str, float]], column: str, title: str, yl
 
 
 def plot_eviction_classes(counts: dict[str, int], output: Path) -> None:
+    """Plot eviction counts grouped by semantic class."""
+
     _use_dark_theme()
     output.parent.mkdir(parents=True, exist_ok=True)
     labels = list(counts.keys()) or ["none"]
@@ -156,6 +174,8 @@ def plot_eviction_classes(counts: dict[str, int], output: Path) -> None:
 
 
 def generate_observability_plots(metrics: SimulationMetrics, output_dir: Path) -> list[Path]:
+    """Generate the standard dashboard plot set for one simulation run."""
+
     output_dir.mkdir(parents=True, exist_ok=True)
     plots = [
         output_dir / "tier_occupancy.png",
@@ -193,6 +213,8 @@ def generate_observability_plots(metrics: SimulationMetrics, output_dir: Path) -
 
 
 def plot_compare(results_csv: Path, output_dir: Path) -> list[Path]:
+    """Create simple policy-comparison plots from a benchmark CSV."""
+
     _use_dark_theme()
     output_dir.mkdir(parents=True, exist_ok=True)
     df = pd.read_csv(results_csv)

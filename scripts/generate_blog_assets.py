@@ -2,27 +2,22 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
-import sys
+from pathlib import Path
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src"
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
-
-from semantic_kv.analysis import ResultInterpreter
-from scripts.generate_paper_figures import generate_figures
-
 
 BLOG_TITLE = "When KV Cache Becomes a Distributed Systems Problem"
 
 
 def generate_blog_assets(output_dir: Path | None = None) -> Path:
+    """Build blog-ready markdown and figure assets from benchmark outputs."""
+
+    from scripts.generate_paper_figures import generate_figures
+    from semantic_kv.analysis import ResultInterpreter
+
     output_dir = output_dir or ROOT / "outputs" / "blog"
     figures_dir = output_dir / "figures"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -43,11 +38,13 @@ def _outline() -> str:
 
 ## 1. The Bottleneck Shift
 
-Inference serving is increasingly constrained by memory residency and movement, not only by math throughput.
+Inference serving is increasingly constrained by memory residency and movement,
+not only by math throughput.
 
 ## 2. Why KV Cache Stops Being A Runtime Detail
 
-KV carries session, prefix, tenant, and reuse structure. Treating it as anonymous memory hides useful intent.
+KV carries session, prefix, tenant, and reuse structure. Treating it as
+anonymous memory hides useful intent.
 
 ## 3. Why CXL Alone Is Insufficient
 
@@ -55,7 +52,8 @@ CXL exposes capacity. It does not decide which KV should move, stay, compress, o
 
 ## 4. Semantic KV Orchestration
 
-Metadata-aware placement, prefix reuse, semantic eviction, and prefetching form a control-plane layer.
+Metadata-aware placement, prefix reuse, semantic eviction, and prefetching form
+a control-plane layer.
 
 ## 5. Rack-Scale Memory Fabric Model
 
@@ -75,11 +73,13 @@ No CUDA kernels, no real vLLM integration, no measured network performance, no q
 
 ## 9. Open Questions
 
-What metadata should real runtimes expose? When is recompute cheaper than movement? Where should prefix caches live?
+What metadata should real runtimes expose? When is recompute cheaper than
+movement? Where should prefix caches live?
 
 ## 10. Future Work
 
-Trace import, connector mocks, topology calibration, DPU/NIC offload simulation, and rack-scale policy search.
+Trace import, connector mocks, topology calibration, DPU/NIC offload
+simulation, and rack-scale policy search.
 """
 
 
@@ -88,17 +88,25 @@ def _social_thread() -> str:
 
 1. KV cache is starting to look less like a runtime detail and more like distributed infrastructure.
 
-2. Long context, shared prompts, RAG payloads, and agent loops all create memory pressure that generic spill policies cannot fully understand.
+2. Long context, shared prompts, RAG payloads, and agent loops all create
+memory pressure that generic spill policies cannot fully understand.
 
-3. I built a synthetic simulation platform to ask a narrow question: what changes if KV metadata includes prefix hashes, fanout, eviction class, topology, and movement cost?
+3. I built a synthetic simulation platform to ask a narrow question: what
+changes if KV metadata includes prefix hashes, fanout, eviction class,
+topology, and movement cost?
 
-4. The project does not run CUDA and does not claim real hardware speedups. It is a policy sandbox for memory-orchestrated inference.
+4. The project does not run CUDA and does not claim real hardware speedups.
+It is a policy sandbox for memory-orchestrated inference.
 
-5. The interesting result is not a single number. It is the shape of the problem: HBM pressure, movement, prefix reuse, congestion, and energy proxy interact.
+5. The interesting result is not a single number. It is the shape of the
+problem: HBM pressure, movement, prefix reuse, congestion, and energy proxy
+interact.
 
-6. CXL adds capacity, but semantic orchestration asks what should move, where it should live, and whether movement is worth it.
+6. CXL adds capacity, but semantic orchestration asks what should move, where
+it should live, and whether movement is worth it.
 
-7. Next step: import real serving traces and compare simulated policies against runtime-observed KV behavior.
+7. Next step: import real serving traces and compare simulated policies against
+runtime-observed KV behavior.
 """
 
 

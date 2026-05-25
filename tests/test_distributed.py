@@ -42,13 +42,17 @@ def test_topology_prefers_local_appliance():
 
 
 def test_topology_aware_policy_places_prefix_on_appliance():
-    decision = TopologyAwareSemanticPolicy().choose_tier(_block(), default_tier_profiles(scale=0.01))
+    decision = TopologyAwareSemanticPolicy().choose_tier(
+        _block(), default_tier_profiles(scale=0.01)
+    )
     assert decision.target_tier is MemoryTier.KV_APPLIANCE
     assert "prefix" in decision.reason
 
 
 def test_distributed_policy_mentions_multicast_anchor():
-    decision = DistributedSemanticKVPolicy().choose_tier(_block(fanout=64), default_tier_profiles(scale=0.01))
+    decision = DistributedSemanticKVPolicy().choose_tier(
+        _block(fanout=64), default_tier_profiles(scale=0.01)
+    )
     assert decision.target_tier is MemoryTier.KV_APPLIANCE
     assert "multicast" in decision.reason
 
@@ -64,7 +68,9 @@ def test_distributed_prefix_directory_tracks_avoided_bytes():
 
 def test_predictive_prefetch_prioritizes_tool_loop():
     engine = PredictivePrefetchEngine()
-    plan = engine.plan("s", 128, decode_velocity_tps=20, prefix_reuse_probability=0.1, active_tool_loop=True)
+    plan = engine.plan(
+        "s", 128, decode_velocity_tps=20, prefix_reuse_probability=0.1, active_tool_loop=True
+    )
     assert plan.priority is PrefetchPriority.URGENT
 
 

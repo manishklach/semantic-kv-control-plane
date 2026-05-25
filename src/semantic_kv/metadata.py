@@ -10,6 +10,8 @@ from semantic_kv.models import CompressionMode, KVBlock
 
 @dataclass
 class PrefixDirectory:
+    """Track canonical exact-match prefixes and dedup savings."""
+
     prefixes: dict[str, list[KVBlock]] = field(default_factory=dict)
     attached_sessions: dict[str, set[str]] = field(default_factory=dict)
     prefix_hit_count: int = 0

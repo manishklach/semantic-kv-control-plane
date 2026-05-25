@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +30,9 @@ from semantic_kv.tiers import default_tier_profiles
 from semantic_kv.workloads import EventType, WorkloadEvent
 
 
-class TraceEventType(str, Enum):
+class TraceEventType(StrEnum):
+    """Event kinds supported by the runtime-neutral replay schema."""
+
     SESSION_START = "SESSION_START"
     SESSION_END = "SESSION_END"
     KV_ALLOC = "KV_ALLOC"
@@ -48,6 +50,8 @@ class TraceEventType(str, Enum):
 
 @dataclass(frozen=True)
 class TraceEvent:
+    """Represent a single timestamped event in a replayable trace."""
+
     step: int
     timestamp_us: float
     event_type: TraceEventType
@@ -66,6 +70,8 @@ class TraceEvent:
 
 @dataclass(frozen=True)
 class Trace:
+    """Bundle events and metadata for a reproducible simulation trace."""
+
     events: list[TraceEvent]
     workload_name: str
     model_profile: ModelProfile
@@ -75,6 +81,8 @@ class Trace:
 
     @property
     def name(self) -> str:
+        """Return the human-readable workload name."""
+
         return self.workload_name
 
     def to_jsonl(self, path: Path) -> None:
@@ -95,7 +103,7 @@ class Trace:
                 handle.write(json.dumps(row) + "\n")
 
     @classmethod
-    def from_jsonl(cls, path: Path, name: str | None = None) -> "Trace":
+    def from_jsonl(cls, path: Path, name: str | None = None) -> Trace:
         events: list[TraceEvent] = []
         header: dict[str, Any] = {}
         with path.open("r", encoding="utf-8") as handle:
@@ -140,7 +148,10 @@ class Trace:
                 errors.append(f"event {index} has negative step")
             if event.timestamp_us < 0:
                 errors.append(f"event {index} has negative timestamp")
-            if event.event_type in {TraceEventType.KV_ALLOC, TraceEventType.KV_ACCESS} and not event.session_id:
+            if (
+                event.event_type in {TraceEventType.KV_ALLOC, TraceEventType.KV_ACCESS}
+                and not event.session_id
+            ):
                 errors.append(f"event {index} missing session_id")
             if event.event_type is TraceEventType.KV_ALLOC and not event.token_count:
                 errors.append(f"event {index} allocation missing token_count")
@@ -172,7 +183,11 @@ POLICY_MATRIX: dict[str, tuple[str, PlacementPolicy, object]] = {
     "naive": ("Naive HBM + LRU", NaiveHBMPolicy(), LRUEviction()),
     "cxl": ("Generic CXL Spill + LRU", CXLSpillPolicy(), LRUEviction()),
     "semantic": ("Single-node Semantic KV", SemanticKVPolicy(), SemanticEviction()),
-    "topology-aware": ("Topology-aware Semantic KV", TopologyAwareSemanticPolicy(), SemanticEviction()),
+    "topology-aware": (
+        "Topology-aware Semantic KV",
+        TopologyAwareSemanticPolicy(),
+        SemanticEviction(),
+    ),
     "distributed-semantic": (
         "Distributed Semantic KV",
         DistributedSemanticKVPolicy(),
@@ -210,14 +225,21 @@ class TraceReplayEngine:
 
 
 def trace_to_workload_events(trace: Trace) -> list[WorkloadEvent]:
+    """Convert runtime-neutral trace events into simulator workload events."""
+
     events: list[WorkloadEvent] = []
     profile = trace.model_profile
     for event in trace.events:
         if event.event_type is TraceEventType.KV_ALLOC:
             token_count = event.token_count or profile.block_tokens
             bytes_uncompressed = event.bytes or profile.estimate_kv_block_bytes(token_count)
-            block_id = event.metadata.get("block_id") or f"{event.session_id}:b{event.token_start or event.step}"
-            eviction_class = EvictionClass(event.metadata.get("eviction_class", EvictionClass.SESSION_RECENT.value))
+            block_id = (
+                event.metadata.get("block_id")
+                or f"{event.session_id}:b{event.token_start or event.step}"
+            )
+            eviction_class = EvictionClass(
+                event.metadata.get("eviction_class", EvictionClass.SESSION_RECENT.value)
+            )
             block = KVBlock(
                 block_id=block_id,
                 session_id=event.session_id,
@@ -230,7 +252,9 @@ def trace_to_workload_events(trace: Trace) -> list[WorkloadEvent]:
                 bytes_stored=bytes_uncompressed,
                 tier=MemoryTier.GPU_HBM,
                 prefix_hash=event.prefix_hash,
-                reuse_score=float(event.metadata.get("reuse_score", 0.8 if event.prefix_hash else 0.2)),
+                reuse_score=float(
+                    event.metadata.get("reuse_score", 0.8 if event.prefix_hash else 0.2)
+                ),
                 eviction_class=eviction_class,
                 last_access_step=event.step,
                 created_step=event.step,
@@ -239,23 +263,44 @@ def trace_to_workload_events(trace: Trace) -> list[WorkloadEvent]:
             )
             events.append(WorkloadEvent(event.step, EventType.CREATE_BLOCK, block=block))
         elif event.event_type in {TraceEventType.KV_ACCESS, TraceEventType.DECODE_STEP}:
-            block_id = event.metadata.get("block_id") or f"{event.session_id}:b{event.token_start or 0}"
+            block_id = (
+                event.metadata.get("block_id") or f"{event.session_id}:b{event.token_start or 0}"
+            )
             events.append(
-                WorkloadEvent(event.step, EventType.ACCESS_BLOCK, block_id=block_id, session_id=event.session_id)
+                WorkloadEvent(
+                    event.step,
+                    EventType.ACCESS_BLOCK,
+                    block_id=block_id,
+                    session_id=event.session_id,
+                )
             )
         elif event.event_type is TraceEventType.KV_PREFETCH:
-            events.append(WorkloadEvent(event.step, EventType.PREFETCH_REQUEST, session_id=event.session_id))
+            events.append(
+                WorkloadEvent(event.step, EventType.PREFETCH_REQUEST, session_id=event.session_id)
+            )
         elif event.event_type is TraceEventType.SESSION_END:
-            events.append(WorkloadEvent(event.step, EventType.SESSION_END, session_id=event.session_id))
+            events.append(
+                WorkloadEvent(event.step, EventType.SESSION_END, session_id=event.session_id)
+            )
     return sorted(events, key=lambda item: item.step)
 
 
 def synthetic_trace_from_steps(name: str, steps: int, sessions: int) -> Trace:
+    """Create a minimal synthetic trace directly from session and step counts."""
+
     profile = ModelProfile("llama8b", 32, 8, 128, 2, 128)
     events: list[TraceEvent] = []
     for session in range(sessions):
         session_id = f"s{session}"
-        events.append(TraceEvent(0, 0, TraceEventType.SESSION_START, session_id=session_id, model_id=profile.model_name))
+        events.append(
+            TraceEvent(
+                0,
+                0,
+                TraceEventType.SESSION_START,
+                session_id=session_id,
+                model_id=profile.model_name,
+            )
+        )
         for step in range(steps):
             block_id = f"{session_id}:b{step}"
             events.append(
@@ -282,5 +327,13 @@ def synthetic_trace_from_steps(name: str, steps: int, sessions: int) -> Trace:
                     metadata={"block_id": block_id},
                 )
             )
-        events.append(TraceEvent(steps + 1, (steps + 1) * 1000, TraceEventType.SESSION_END, session_id=session_id, model_id=profile.model_name))
+        events.append(
+            TraceEvent(
+                steps + 1,
+                (steps + 1) * 1000,
+                TraceEventType.SESSION_END,
+                session_id=session_id,
+                model_id=profile.model_name,
+            )
+        )
     return Trace(events, name, profile, "synthetic", "minimal synthetic trace", ["simulation only"])

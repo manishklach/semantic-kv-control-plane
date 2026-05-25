@@ -1,5 +1,10 @@
 # Semantic KV Control Plane
 
+[![CI](https://github.com/manishklach/semantic-kv-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/manishklach/semantic-kv-control-plane/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-pytest--cov-blue)](https://github.com/manishklach/semantic-kv-control-plane/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 A simulator for semantic KV-cache orchestration, rack-scale memory placement, and inference memory infrastructure beyond generic CXL spillover.
 
 Semantic KV Control Plane is a systems research prototype for studying what happens when KV cache is treated as distributed inference infrastructure rather than anonymous memory pressure. It is a simulator, not an inference engine. It does not run CUDA kernels, import real vLLM state, or claim hardware speedups.

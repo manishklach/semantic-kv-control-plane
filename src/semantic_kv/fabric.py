@@ -12,6 +12,8 @@ from dataclasses import dataclass
 
 @dataclass(slots=True)
 class FabricLink:
+    """Represent one abstract bandwidth- and latency-limited fabric link."""
+
     link_id: str
     source: str
     target: str
@@ -46,6 +48,8 @@ class FabricLink:
 
 
 def default_fabric_links() -> dict[str, FabricLink]:
+    """Return default NVLink, PCIe, CXL, and rack-uplink link profiles."""
+
     return {
         "nvlink": FabricLink("nvlink", "gpu", "gpu", 900, 2),
         "pcie": FabricLink("pcie", "gpu", "root", 64, 8, retry_penalty_us=20),

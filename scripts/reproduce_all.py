@@ -3,22 +3,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src"
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
-
-from benchmarks.scenarios import run_all_scenarios
-from scripts.generate_blog_assets import generate_blog_assets
-from scripts.generate_paper_figures import generate_figures
-from semantic_kv.trace_generators import export_sample_traces
 
 
 def main() -> None:
+    """Generate traces, benchmark results, figures, and blog assets."""
+
+    from benchmarks.scenarios import run_all_scenarios
+    from scripts.generate_blog_assets import generate_blog_assets
+    from scripts.generate_paper_figures import generate_figures
+    from semantic_kv.trace_generators import export_sample_traces
+
     trace_paths = export_sample_traces(ROOT / "examples" / "traces")
     frame = run_all_scenarios(ROOT / "benchmarks" / "results")
     figures = generate_figures()

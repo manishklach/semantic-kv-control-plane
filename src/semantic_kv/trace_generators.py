@@ -8,12 +8,13 @@ from pathlib import Path
 from semantic_kv.models import EvictionClass, ModelProfile
 from semantic_kv.traces import Trace, TraceEvent, TraceEventType
 
-
 DEFAULT_PROFILE = ModelProfile("llama70b-gqa", 80, 8, 128, 2, 128)
 
 
 @dataclass
 class TraceGeneratorConfig:
+    """Shared knobs for synthetic trace generator families."""
+
     sessions: int = 100
     decode_steps: int = 128
     tenants: int = 1
@@ -22,6 +23,8 @@ class TraceGeneratorConfig:
 
 
 class BaseTraceGenerator:
+    """Base class for trace generators with shared helpers and export logic."""
+
     workload_name = "base"
     description = ""
     expected_behavior = ""
@@ -38,9 +41,7 @@ class BaseTraceGenerator:
             f"# {trace.workload_name}\n\n{trace.description}\n\n"
             "## Expected semantic advantage\n\n"
             f"{self.expected_behavior}\n\n"
-            "## Assumptions\n\n"
-            + "\n".join(f"- {item}" for item in trace.assumptions)
-            + "\n",
+            "## Assumptions\n\n" + "\n".join(f"- {item}" for item in trace.assumptions) + "\n",
             encoding="utf-8",
         )
         return jsonl, md
@@ -89,9 +90,17 @@ class BaseTraceGenerator:
 
 
 class SharedEnterprisePromptTrace(BaseTraceGenerator):
+    """Generate traces with a large shared enterprise prompt footprint."""
+
     workload_name = "shared_enterprise"
-    description = "Many enterprise users share the same system prompt, policy block, tool schema, or RAG context."
-    expected_behavior = "High prefix hit rate, high dedup savings, lower HBM pressure, and reduced repeated KV movement."
+    description = (
+        "Many enterprise users share the same system prompt, policy block, "
+        "tool schema, or RAG context."
+    )
+    expected_behavior = (
+        "High prefix hit rate, high dedup savings, lower HBM pressure, and "
+        "reduced repeated KV movement."
+    )
 
     def generate(
         self,
@@ -109,23 +118,94 @@ class SharedEnterprisePromptTrace(BaseTraceGenerator):
         for s in range(sessions):
             tenant_id = f"tenant-{s % tenants}"
             session_id = f"{tenant_id}:s{s}"
-            events.append(TraceEvent(0, 0, TraceEventType.SESSION_START, session_id, tenant_id, self.profile.model_name))
+            events.append(
+                TraceEvent(
+                    0,
+                    0,
+                    TraceEventType.SESSION_START,
+                    session_id,
+                    tenant_id,
+                    self.profile.model_name,
+                )
+            )
             for i in range(prefix_blocks):
-                events.append(self._alloc(i, session_id, i, self.profile.block_tokens, EvictionClass.REUSABLE_PREFIX, tenant_id, "enterprise-policy-v1", fanout, gpu_id=f"gpu-{s % 8}"))
-                events.append(TraceEvent(i, i * 1000, TraceEventType.PREFIX_LOOKUP, session_id, tenant_id, self.profile.model_name, prefix_hash="enterprise-policy-v1"))
-                events.append(TraceEvent(i, i * 1000, TraceEventType.PREFIX_HIT if s else TraceEventType.PREFIX_MISS, session_id, tenant_id, self.profile.model_name, prefix_hash="enterprise-policy-v1"))
+                events.append(
+                    self._alloc(
+                        i,
+                        session_id,
+                        i,
+                        self.profile.block_tokens,
+                        EvictionClass.REUSABLE_PREFIX,
+                        tenant_id,
+                        "enterprise-policy-v1",
+                        fanout,
+                        gpu_id=f"gpu-{s % 8}",
+                    )
+                )
+                events.append(
+                    TraceEvent(
+                        i,
+                        i * 1000,
+                        TraceEventType.PREFIX_LOOKUP,
+                        session_id,
+                        tenant_id,
+                        self.profile.model_name,
+                        prefix_hash="enterprise-policy-v1",
+                    )
+                )
+                events.append(
+                    TraceEvent(
+                        i,
+                        i * 1000,
+                        TraceEventType.PREFIX_HIT if s else TraceEventType.PREFIX_MISS,
+                        session_id,
+                        tenant_id,
+                        self.profile.model_name,
+                        prefix_hash="enterprise-policy-v1",
+                    )
+                )
             for i in range(unique_blocks):
                 block_i = prefix_blocks + i
-                events.append(self._alloc(block_i, session_id, block_i, self.profile.block_tokens, EvictionClass.SESSION_RECENT, tenant_id))
+                events.append(
+                    self._alloc(
+                        block_i,
+                        session_id,
+                        block_i,
+                        self.profile.block_tokens,
+                        EvictionClass.SESSION_RECENT,
+                        tenant_id,
+                    )
+                )
             for d in range(decode_steps):
-                events.append(self._access(prefix_blocks + unique_blocks + d, session_id, prefix_blocks + unique_blocks - 1))
-        return Trace(events, self.workload_name, self.profile, "2 racks x 4 GPUs", self.description, ["synthetic simulation", "exact-match prefix hash"])
+                events.append(
+                    self._access(
+                        prefix_blocks + unique_blocks + d,
+                        session_id,
+                        prefix_blocks + unique_blocks - 1,
+                    )
+                )
+        return Trace(
+            events,
+            self.workload_name,
+            self.profile,
+            "2 racks x 4 GPUs",
+            self.description,
+            ["synthetic simulation", "exact-match prefix hash"],
+        )
 
 
 class AgenticLoopTrace(BaseTraceGenerator):
+    """Generate traces with persistent memory and ephemeral tool-call KV."""
+
     workload_name = "agentic_loop"
-    description = "Tool-calling agents repeatedly plan, call tools, observe, reflect, and continue."
-    expected_behavior = "Evict ephemeral tool KV earlier, protect persistent memory, and prefetch reflection windows."
+    description = (
+        "Tool-calling agents repeatedly plan, call tools, observe, reflect, "
+        "and continue."
+    )
+    expected_behavior = (
+        "Evict ephemeral tool KV earlier, protect persistent memory, and "
+        "prefetch reflection windows."
+    )
 
     def generate(
         self,
@@ -141,47 +221,133 @@ class AgenticLoopTrace(BaseTraceGenerator):
         tool_blocks = max(1, ephemeral_tool_tokens // self.profile.block_tokens)
         for s in range(sessions):
             session_id = f"agent{s}"
-            events.append(TraceEvent(0, 0, TraceEventType.SESSION_START, session_id, model_id=self.profile.model_name))
+            events.append(
+                TraceEvent(
+                    0, 0, TraceEventType.SESSION_START, session_id, model_id=self.profile.model_name
+                )
+            )
             for i in range(persistent_blocks):
-                events.append(self._alloc(i, session_id, i, self.profile.block_tokens, EvictionClass.REUSABLE_PREFIX, prefix_hash="agent-memory", fanout_count=sessions))
+                events.append(
+                    self._alloc(
+                        i,
+                        session_id,
+                        i,
+                        self.profile.block_tokens,
+                        EvictionClass.REUSABLE_PREFIX,
+                        prefix_hash="agent-memory",
+                        fanout_count=sessions,
+                    )
+                )
             step = persistent_blocks
             for tool in range(tools_per_session):
-                events.append(TraceEvent(step, step * 1000, TraceEventType.TOOL_CALL_START, session_id, model_id=self.profile.model_name))
+                events.append(
+                    TraceEvent(
+                        step,
+                        step * 1000,
+                        TraceEventType.TOOL_CALL_START,
+                        session_id,
+                        model_id=self.profile.model_name,
+                    )
+                )
                 for j in range(tool_blocks):
-                    events.append(self._alloc(step + j, session_id, step + j, self.profile.block_tokens, EvictionClass.EPHEMERAL_TOOL_CALL))
+                    events.append(
+                        self._alloc(
+                            step + j,
+                            session_id,
+                            step + j,
+                            self.profile.block_tokens,
+                            EvictionClass.EPHEMERAL_TOOL_CALL,
+                        )
+                    )
                 step += tool_blocks
-                events.append(TraceEvent(step, step * 1000, TraceEventType.TOOL_CALL_END, session_id, model_id=self.profile.model_name))
+                events.append(
+                    TraceEvent(
+                        step,
+                        step * 1000,
+                        TraceEventType.TOOL_CALL_END,
+                        session_id,
+                        model_id=self.profile.model_name,
+                    )
+                )
                 for r in range(reflection_steps):
-                    events.append(TraceEvent(step + r, (step + r) * 1000, TraceEventType.KV_PREFETCH, session_id, model_id=self.profile.model_name))
+                    events.append(
+                        TraceEvent(
+                            step + r,
+                            (step + r) * 1000,
+                            TraceEventType.KV_PREFETCH,
+                            session_id,
+                            model_id=self.profile.model_name,
+                        )
+                    )
             for d in range(decode_steps):
                 events.append(self._access(step + d, session_id, persistent_blocks - 1))
-        return Trace(events, self.workload_name, self.profile, "agentic single rack", self.description, ["synthetic tool-loop structure"])
+        return Trace(
+            events,
+            self.workload_name,
+            self.profile,
+            "agentic single rack",
+            self.description,
+            ["synthetic tool-loop structure"],
+        )
 
 
 class LongContextTrace(BaseTraceGenerator):
+    """Generate traces dominated by large contexts and cold historical ranges."""
+
     workload_name = "long_context"
     description = "Few users with very large contexts and cold historical ranges."
-    expected_behavior = "Compression and tiering reduce HBM pressure; generic spill can increase stall proxy."
+    expected_behavior = (
+        "Compression and tiering reduce HBM pressure; generic spill can increase stall proxy."
+    )
 
-    def generate(self, sessions: int = 8, context_tokens: int = 131072, decode_steps: int = 64, sliding_window: bool = True, cold_prefix_ratio: float = 0.7) -> Trace:
+    def generate(
+        self,
+        sessions: int = 8,
+        context_tokens: int = 131072,
+        decode_steps: int = 64,
+        sliding_window: bool = True,
+        cold_prefix_ratio: float = 0.7,
+    ) -> Trace:
         events: list[TraceEvent] = []
         blocks = max(1, context_tokens // self.profile.block_tokens)
         cold_until = int(blocks * cold_prefix_ratio)
         for s in range(sessions):
             session_id = f"long{s}"
-            events.append(TraceEvent(0, 0, TraceEventType.SESSION_START, session_id, model_id=self.profile.model_name))
+            events.append(
+                TraceEvent(
+                    0, 0, TraceEventType.SESSION_START, session_id, model_id=self.profile.model_name
+                )
+            )
             for i in range(blocks):
                 klass = EvictionClass.LOW_ATTENTION if i < cold_until else EvictionClass.HOT_ACTIVE
                 events.append(self._alloc(i, session_id, i, self.profile.block_tokens, klass))
             for d in range(decode_steps):
-                events.append(self._access(blocks + d, session_id, blocks - 1 if sliding_window else d % blocks))
-        return Trace(events, self.workload_name, self.profile, "large-context", self.description, ["synthetic long-context trace", f"cold_prefix_ratio={cold_prefix_ratio}"])
+                events.append(
+                    self._access(
+                        blocks + d, session_id, blocks - 1 if sliding_window else d % blocks
+                    )
+                )
+        return Trace(
+            events,
+            self.workload_name,
+            self.profile,
+            "large-context",
+            self.description,
+            ["synthetic long-context trace", f"cold_prefix_ratio={cold_prefix_ratio}"],
+        )
 
 
 class MultiTenantRackTrace(BaseTraceGenerator):
+    """Generate rack-scale traces with tenant overlap and isolation effects."""
+
     workload_name = "multi_tenant_rack"
-    description = "Multiple tenants share a rack-scale inference system with overlapping and isolated prefixes."
-    expected_behavior = "Rack-local prefix reuse, tenant-aware isolation, and avoided cross-rack movement."
+    description = (
+        "Multiple tenants share a rack-scale inference system with "
+        "overlapping and isolated prefixes."
+    )
+    expected_behavior = (
+        "Rack-local prefix reuse, tenant-aware isolation, and avoided cross-rack movement."
+    )
 
     def generate(
         self,
@@ -203,28 +369,91 @@ class MultiTenantRackTrace(BaseTraceGenerator):
                 global_s = t * sessions_per_tenant + s
                 session_id = f"{tenant_id}:s{s}"
                 gpu_id = f"gpu-{global_s % (racks * gpus_per_rack)}"
-                prefix_hash = "global-policy" if cross_tenant_dedup_allowed else f"{tenant_id}:policy"
-                events.append(TraceEvent(0, 0, TraceEventType.SESSION_START, session_id, tenant_id, self.profile.model_name, gpu_id=gpu_id))
+                prefix_hash = (
+                    "global-policy" if cross_tenant_dedup_allowed else f"{tenant_id}:policy"
+                )
+                events.append(
+                    TraceEvent(
+                        0,
+                        0,
+                        TraceEventType.SESSION_START,
+                        session_id,
+                        tenant_id,
+                        self.profile.model_name,
+                        gpu_id=gpu_id,
+                    )
+                )
                 for i in range(prefix_blocks):
                     shared = (s / max(1, sessions_per_tenant)) < shared_prefix_probability
-                    events.append(self._alloc(i, session_id, i, self.profile.block_tokens, EvictionClass.REUSABLE_PREFIX if shared else EvictionClass.SESSION_COLD, tenant_id, prefix_hash if shared else None, sessions, gpu_id))
+                    events.append(
+                        self._alloc(
+                            i,
+                            session_id,
+                            i,
+                            self.profile.block_tokens,
+                            EvictionClass.REUSABLE_PREFIX if shared else EvictionClass.SESSION_COLD,
+                            tenant_id,
+                            prefix_hash if shared else None,
+                            sessions,
+                            gpu_id,
+                        )
+                    )
                 for i in range(unique_blocks):
-                    events.append(self._alloc(prefix_blocks + i, session_id, prefix_blocks + i, self.profile.block_tokens, EvictionClass.SESSION_RECENT, tenant_id, gpu_id=gpu_id))
+                    events.append(
+                        self._alloc(
+                            prefix_blocks + i,
+                            session_id,
+                            prefix_blocks + i,
+                            self.profile.block_tokens,
+                            EvictionClass.SESSION_RECENT,
+                            tenant_id,
+                            gpu_id=gpu_id,
+                        )
+                    )
                 for d in range(decode_steps):
-                    events.append(self._access(prefix_blocks + unique_blocks + d, session_id, prefix_blocks + unique_blocks - 1))
-        return Trace(events, self.workload_name, self.profile, f"{racks} racks x {gpus_per_rack} GPUs", self.description, ["synthetic multi-tenant rack", f"cross_tenant_dedup_allowed={cross_tenant_dedup_allowed}"])
+                    events.append(
+                        self._access(
+                            prefix_blocks + unique_blocks + d,
+                            session_id,
+                            prefix_blocks + unique_blocks - 1,
+                        )
+                    )
+        return Trace(
+            events,
+            self.workload_name,
+            self.profile,
+            f"{racks} racks x {gpus_per_rack} GPUs",
+            self.description,
+            [
+                "synthetic multi-tenant rack",
+                f"cross_tenant_dedup_allowed={cross_tenant_dedup_allowed}",
+            ],
+        )
 
 
 class MixedProductionTrace(BaseTraceGenerator):
+    """Generate a blended trace that mixes multiple production-like patterns."""
+
     workload_name = "mixed_production"
     description = "Blend of enterprise prompts, agentic loops, and long-context sessions."
-    expected_behavior = "Shows control-plane value under mixed HBM, movement, prefix, and tool-loop pressure."
+    expected_behavior = (
+        "Shows control-plane value under mixed HBM, movement, prefix, and tool-loop pressure."
+    )
 
     def generate(self) -> Trace:
         traces = [
-            SharedEnterprisePromptTrace(self.profile).generate(sessions=128, shared_prefix_tokens=4096, unique_tokens_per_session=512, decode_steps=32),
-            AgenticLoopTrace(self.profile).generate(sessions=32, tools_per_session=3, decode_steps=32),
-            LongContextTrace(self.profile).generate(sessions=4, context_tokens=32768, decode_steps=32),
+            SharedEnterprisePromptTrace(self.profile).generate(
+                sessions=128,
+                shared_prefix_tokens=4096,
+                unique_tokens_per_session=512,
+                decode_steps=32,
+            ),
+            AgenticLoopTrace(self.profile).generate(
+                sessions=32, tools_per_session=3, decode_steps=32
+            ),
+            LongContextTrace(self.profile).generate(
+                sessions=4, context_tokens=32768, decode_steps=32
+            ),
         ]
         events: list[TraceEvent] = []
         offset = 0
@@ -249,7 +478,14 @@ class MixedProductionTrace(BaseTraceGenerator):
                     )
                 )
             offset += max(event.step for event in trace.events) + 10
-        return Trace(events, self.workload_name, self.profile, "mixed rack-scale", self.description, ["synthetic mixed production blend"])
+        return Trace(
+            events,
+            self.workload_name,
+            self.profile,
+            "mixed rack-scale",
+            self.description,
+            ["synthetic mixed production blend"],
+        )
 
 
 GENERATORS = {
@@ -262,13 +498,19 @@ GENERATORS = {
 
 
 def generate_named_trace(name: str, **kwargs) -> Trace:
+    """Generate one named trace using the registered synthetic generator."""
+
     generator_cls = GENERATORS[name]
     return generator_cls().generate(**kwargs)
 
 
 def export_sample_traces(directory: Path) -> list[Path]:
+    """Export a representative set of sample traces and markdown notes."""
+
     traces = [
-        SharedEnterprisePromptTrace().generate(sessions=100, shared_prefix_tokens=4096, unique_tokens_per_session=512, decode_steps=16),
+        SharedEnterprisePromptTrace().generate(
+            sessions=100, shared_prefix_tokens=4096, unique_tokens_per_session=512, decode_steps=16
+        ),
         AgenticLoopTrace().generate(sessions=16, tools_per_session=2, decode_steps=16),
         LongContextTrace().generate(sessions=2, context_tokens=16384, decode_steps=16),
         MultiTenantRackTrace().generate(tenants=4, sessions_per_tenant=8, decode_steps=16),

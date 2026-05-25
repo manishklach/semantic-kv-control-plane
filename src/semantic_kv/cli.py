@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from copy import deepcopy
+from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
+from semantic_kv.dashboard import generate_static_dashboard
 from semantic_kv.metrics import (
     bytes_to_gb,
     generate_observability_plots,
@@ -16,7 +17,6 @@ from semantic_kv.metrics import (
     plot_tier_occupancy,
     write_results_csv,
 )
-from semantic_kv.dashboard import generate_static_dashboard
 from semantic_kv.models import MODEL_PRESETS
 from semantic_kv.placement import CXLSpillPolicy, NaiveHBMPolicy, SemanticKVPolicy, make_policy
 from semantic_kv.simulator import SimulationEngine, make_eviction_policy
@@ -159,7 +159,11 @@ def generate_trace(
 ) -> None:
     """Generate a synthetic JSONL trace."""
 
-    kwargs = {"sessions": sessions} if scenario in {"shared-enterprise", "agentic-loop", "long-context"} else {}
+    kwargs = (
+        {"sessions": sessions}
+        if scenario in {"shared-enterprise", "agentic-loop", "long-context"}
+        else {}
+    )
     trace = generate_named_trace(scenario, **kwargs)
     path = output / f"{trace.workload_name}.jsonl"
     trace.to_jsonl(path)

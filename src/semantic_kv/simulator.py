@@ -10,7 +10,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from semantic_kv.compression import apply_compression
-from semantic_kv.eviction import DistributedSemanticEvictionPolicy, EvictionPolicy, LRUEviction, SemanticEviction
+from semantic_kv.eviction import (
+    DistributedSemanticEvictionPolicy,
+    EvictionPolicy,
+    LRUEviction,
+    SemanticEviction,
+)
 from semantic_kv.metadata import PrefixDirectory
 from semantic_kv.metrics import SimulationMetrics
 from semantic_kv.models import CompressionMode, EvictionClass, KVBlock, MemoryTier, ModelProfile
@@ -19,7 +24,6 @@ from semantic_kv.placement import PlacementPolicy, SemanticKVPolicy
 from semantic_kv.prefetch import PrefetchScheduler
 from semantic_kv.tiers import MemoryTierState, default_tier_profiles
 from semantic_kv.workloads import EventType, WorkloadEvent
-
 
 TOPOLOGY_HOPS: dict[tuple[MemoryTier, MemoryTier], float] = {
     (MemoryTier.GPU_HBM, MemoryTier.KV_APPLIANCE): 1.4,
@@ -32,6 +36,8 @@ TOPOLOGY_HOPS: dict[tuple[MemoryTier, MemoryTier], float] = {
 
 @dataclass
 class SimulationEngine:
+    """Replay workload events through placement, eviction, and tier models."""
+
     model_profile: ModelProfile
     workload: list[WorkloadEvent]
     placement_policy: PlacementPolicy
@@ -48,9 +54,13 @@ class SimulationEngine:
     _step_stall_us: float = 0.0
 
     def __post_init__(self) -> None:
+        """Initialize tier state from defaults or caller-provided profiles."""
+
         self.tiers = self.tier_config or default_tier_profiles()
 
     def run(self) -> SimulationMetrics:
+        """Execute the configured workload and return aggregated metrics."""
+
         events_by_step: dict[int, list[WorkloadEvent]] = {}
         for event in self.workload:
             events_by_step.setdefault(event.step, []).append(event)
@@ -67,11 +77,20 @@ class SimulationEngine:
         self.metrics.prefetch_success_rate = self.prefetch_scheduler.prefetch_success_rate
         self.metrics.bytes_avoided = self.movement_analyzer.stats.bytes_avoided
         self.metrics.multicast_saved_bytes = self.movement_analyzer.stats.multicast_saved_bytes
-        self.metrics.avoided_cross_rack_bytes = self.movement_analyzer.stats.avoided_cross_rack_bytes
+        self.metrics.avoided_cross_rack_bytes = (
+            self.movement_analyzer.stats.avoided_cross_rack_bytes
+        )
         self.metrics.movement_energy_j = self.movement_analyzer.stats.movement_energy_j
-        created_tokens = max(1, self.metrics.total_kv_created_bytes // max(self.model_profile.estimate_kv_block_bytes(), 1) * self.model_profile.block_tokens)
+        created_tokens = max(
+            1,
+            self.metrics.total_kv_created_bytes
+            // max(self.model_profile.estimate_kv_block_bytes(), 1)
+            * self.model_profile.block_tokens,
+        )
         self.metrics.energy_per_token = self.metrics.movement_energy_j / created_tokens
-        self.metrics.topology_congestion_score = self.metrics.bandwidth_saturation_events / max(1, len(self.metrics.occupancy_history))
+        self.metrics.topology_congestion_score = self.metrics.bandwidth_saturation_events / max(
+            1, len(self.metrics.occupancy_history)
+        )
         self.metrics.estimated_ttft_delta_us = -self.metrics.dedup_saved_bytes / 1_000_000
         self.metrics.estimated_throughput_score = self._throughput_score()
         return self.metrics
@@ -90,7 +109,9 @@ class SimulationEngine:
         elif event.event_type is EventType.RELEASE_BLOCK and event.block_id:
             self._remove_block(event.block_id)
         elif event.event_type is EventType.SESSION_END and event.session_id:
-            for block_id in [bid for bid, block in self.blocks.items() if block.session_id == event.session_id]:
+            for block_id in [
+                bid for bid, block in self.blocks.items() if block.session_id == event.session_id
+            ]:
                 self._remove_block(block_id)
 
     def _create_block(self, block: KVBlock, step: int) -> None:
@@ -102,7 +123,9 @@ class SimulationEngine:
                     block, CompressionMode.BLOCK_QUANT_SIM
                 )
             if block.eviction_class is EvictionClass.EPHEMERAL_TOOL_CALL:
-                self.metrics.compression_saved_bytes += apply_compression(block, CompressionMode.INT8_SIM)
+                self.metrics.compression_saved_bytes += apply_compression(
+                    block, CompressionMode.INT8_SIM
+                )
 
         decision = self.placement_policy.choose_tier(block, self.tiers)
         self._ensure_capacity(decision.target_tier, block.bytes_stored, step)
@@ -128,7 +151,8 @@ class SimulationEngine:
             block.bytes_uncompressed,
             multicast=block.fanout_count > 1,
             hbm_residency=True,
-            cross_rack=self.placement_policy.name == "distributed-semantic-kv" and block.fanout_count >= 16,
+            cross_rack=self.placement_policy.name == "distributed-semantic-kv"
+            and block.fanout_count >= 16,
         )
         self.metrics.compression_saved_bytes += self.prefix_directory.make_dedup_reference(block)
 
@@ -162,7 +186,9 @@ class SimulationEngine:
             self.metrics.eviction_class_counts[victim.eviction_class.value] = (
                 self.metrics.eviction_class_counts.get(victim.eviction_class.value, 0) + 1
             )
-            fallback = MemoryTier.CXL_POOL if tier_name is MemoryTier.GPU_HBM else MemoryTier.NVME_OBJECT
+            fallback = (
+                MemoryTier.CXL_POOL if tier_name is MemoryTier.GPU_HBM else MemoryTier.NVME_OBJECT
+            )
             if self.tiers[fallback].can_fit(victim):
                 self.tiers[fallback].add_block(victim)
                 self._record_transfer(tier_name, fallback, victim.bytes_stored, step)
@@ -175,11 +201,15 @@ class SimulationEngine:
             self.tiers[block.tier].remove_block(block)
 
     def _record_occupancy(self, step: int) -> None:
-        self.metrics.hbm_used_peak = max(self.metrics.hbm_used_peak, self.tiers[MemoryTier.GPU_HBM].used_bytes)
+        self.metrics.hbm_used_peak = max(
+            self.metrics.hbm_used_peak, self.tiers[MemoryTier.GPU_HBM].used_bytes
+        )
         self.metrics.appliance_used_peak = max(
             self.metrics.appliance_used_peak, self.tiers[MemoryTier.KV_APPLIANCE].used_bytes
         )
-        self.metrics.cxl_used_peak = max(self.metrics.cxl_used_peak, self.tiers[MemoryTier.CXL_POOL].used_bytes)
+        self.metrics.cxl_used_peak = max(
+            self.metrics.cxl_used_peak, self.tiers[MemoryTier.CXL_POOL].used_bytes
+        )
         self.metrics.nvme_used_peak = max(
             self.metrics.nvme_used_peak, self.tiers[MemoryTier.NVME_OBJECT].used_bytes
         )
@@ -241,6 +271,8 @@ class SimulationEngine:
 
 
 def make_eviction_policy(name: str) -> EvictionPolicy:
+    """Construct an eviction policy from a user-facing name."""
+
     normalized = name.lower()
     if normalized == "lru":
         return LRUEviction()

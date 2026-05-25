@@ -11,12 +11,16 @@ from semantic_kv.topology import RackTopology, default_rack_topology
 
 @dataclass(frozen=True)
 class EvictionResult:
+    """Capture victims, compressed blocks, and total bytes freed."""
+
     victims: list[KVBlock]
     compressed: list[KVBlock]
     freed_bytes: int
 
 
 class EvictionPolicy:
+    """Interface for eviction strategies used by the simulator."""
+
     name = "base"
 
     def select_victim(
@@ -26,6 +30,8 @@ class EvictionPolicy:
 
 
 class LRUEviction(EvictionPolicy):
+    """Evict the least recently accessed blocks first."""
+
     name = "lru"
 
     def select_victim(
@@ -42,6 +48,8 @@ class LRUEviction(EvictionPolicy):
 
 
 class SemanticEviction(EvictionPolicy):
+    """Evict using semantic metadata rather than recency alone."""
+
     name = "semantic"
 
     CLASS_WEIGHTS = {
@@ -105,6 +113,8 @@ class SemanticEviction(EvictionPolicy):
 
 
 class DistributedSemanticEvictionPolicy(SemanticEviction):
+    """Prefer migration to nearby tiers before evicting reusable prefixes."""
+
     name = "distributed-semantic"
 
     def __init__(self, topology: RackTopology | None = None) -> None:
@@ -116,7 +126,8 @@ class DistributedSemanticEvictionPolicy(SemanticEviction):
         migration_candidates = [
             block
             for block in blocks
-            if block.eviction_class is EvictionClass.REUSABLE_PREFIX and block.tier is MemoryTier.GPU_HBM
+            if block.eviction_class is EvictionClass.REUSABLE_PREFIX
+            and block.tier is MemoryTier.GPU_HBM
         ]
         if migration_candidates:
             migrated: list[KVBlock] = []

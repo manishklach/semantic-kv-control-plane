@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class MemoryTier(str, Enum):
+class MemoryTier(StrEnum):
+    """Supported storage tiers for KV blocks."""
+
     GPU_HBM = "GPU_HBM"
     KV_APPLIANCE = "KV_APPLIANCE"
     CXL_POOL = "CXL_POOL"
     NVME_OBJECT = "NVME_OBJECT"
 
 
-class EvictionClass(str, Enum):
+class EvictionClass(StrEnum):
+    """Semantic categories used to prioritize placement and eviction."""
+
     HOT_ACTIVE = "HOT_ACTIVE"
     REUSABLE_PREFIX = "REUSABLE_PREFIX"
     SESSION_RECENT = "SESSION_RECENT"
@@ -23,7 +27,9 @@ class EvictionClass(str, Enum):
     EPHEMERAL_TOOL_CALL = "EPHEMERAL_TOOL_CALL"
 
 
-class CompressionMode(str, Enum):
+class CompressionMode(StrEnum):
+    """Simulated compression or dedup representations for stored KV."""
+
     NONE = "NONE"
     FP8_SIM = "FP8_SIM"
     INT8_SIM = "INT8_SIM"
@@ -33,6 +39,8 @@ class CompressionMode(str, Enum):
 
 @dataclass(slots=True)
 class KVBlock:
+    """Represent a single KV block tracked by the simulator."""
+
     block_id: str
     session_id: str
     model_id: str
@@ -55,11 +63,15 @@ class KVBlock:
 
     @property
     def recompute_cost(self) -> float:
+        """Estimate a relative recompute cost per token."""
+
         return self.bytes_uncompressed / max(self.token_count, 1)
 
 
 @dataclass(frozen=True, slots=True)
 class ModelProfile:
+    """Capture model geometry needed for lightweight KV accounting."""
+
     model_name: str
     num_layers: int
     num_kv_heads: int
@@ -68,17 +80,16 @@ class ModelProfile:
     block_tokens: int
 
     def estimate_kv_block_bytes(self, tokens: int | None = None) -> int:
+        """Estimate KV bytes for a block with the given token count."""
+
         token_count = tokens or self.block_tokens
         return int(
-            2
-            * self.num_layers
-            * self.num_kv_heads
-            * self.head_dim
-            * token_count
-            * self.dtype_bytes
+            2 * self.num_layers * self.num_kv_heads * self.head_dim * token_count * self.dtype_bytes
         )
 
     def estimate_session_kv_bytes(self, context_tokens: int) -> int:
+        """Estimate total session KV bytes for a full context window."""
+
         return self.estimate_kv_block_bytes(context_tokens)
 
 

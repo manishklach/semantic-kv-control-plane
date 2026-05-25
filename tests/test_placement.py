@@ -6,7 +6,20 @@ from semantic_kv.tiers import MemoryTierState, default_tier_profiles
 
 
 def _block(size=100, klass=EvictionClass.SESSION_RECENT, fanout=0):
-    return KVBlock("b", "s", "m", 0, 0, 0, 1, size, size, MemoryTier.GPU_HBM, eviction_class=klass, fanout_count=fanout)
+    return KVBlock(
+        "b",
+        "s",
+        "m",
+        0,
+        0,
+        0,
+        1,
+        size,
+        size,
+        MemoryTier.GPU_HBM,
+        eviction_class=klass,
+        fanout_count=fanout,
+    )
 
 
 def test_memory_tier_capacity():
